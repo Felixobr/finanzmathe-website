@@ -1,0 +1,80 @@
+---
+title: "Notation"
+subtitle: "Schreibweisen auf dieser Seite, wie im Skript zur Wahrscheinlichkeitstheorie"
+number-sections: false
+---
+
+Alle Themen verwenden dieselben Schreibweisen. Sie folgen dem Skript zur Wahrscheinlichkeitstheorie;
+wo das Stochastik-Skript etwas anders schreibt, steht es dabei.
+
+## Grundbegriffe
+
+| Schreibweise | Bedeutung |
+|---|---|
+| $(\Omega, \mathcal A, P)$ | Wahrscheinlichkeitsraum (im Stochastik-Skript $(\Omega,\mathcal F,P)$) |
+| $\mathcal L_P(X)$ | Verteilung von $X$ unter $P$, also $\mathcal L_P(X)(B) = P(X \in B)$ (Stochastik-Skript: $P_X$) |
+| $E[X]$, $\mathrm{Var}(X)$ | Erwartungswert und Varianz |
+| $E[X, A]$ | $E[X \mathbf 1_A]$, der Erwartungswert von $X$ auf dem Ereignis $A$ |
+| $\mathcal L^p(\Omega,\mathcal A,P)$, $\Vert X\Vert_p$ | $p$-fach integrierbare Zufallsvariablen und ihre Norm |
+| $P$-f.s. | $P$-fast sicher, d.h. bis auf eine $P$-Nullmenge |
+| u.i.v. | unabhängig und identisch verteilt |
+| $\mathrm{Ber}(p)$, $N(\mu,\sigma^2)$ | Bernoulli- und Normalverteilung |
+| $[n]$ | $\{1, \dots, n\}$ |
+| $\log$ | natürlicher Logarithmus |
+
+## Bedingte Erwartung
+
+| Schreibweise | Bedeutung |
+|---|---|
+| $\mathcal F \subseteq \mathcal A$ | Teil-σ-Algebra, die „verfügbare Information“ |
+| $E[X \mid \mathcal F]$ | bedingte Erwartung: $\mathcal F$-messbar mit $E[E[X\mid\mathcal F], A] = E[X, A]$ für alle $A \in \mathcal F$ |
+| $E[X \mid Z]$ | $E[X \mid \sigma(Z)]$ |
+| $P(A \mid \mathcal F)$ | $E[\mathbf 1_A \mid \mathcal F]$ |
+| $\mathrm{Var}(X \mid \mathcal F)$ | bedingte Varianz $E[(X - E[X\mid\mathcal F])^2 \mid \mathcal F]$ |
+
+Rechenregeln, die auf dieser Seite immer wieder vorkommen (alle $P$-f.s.):
+
+- **Turmeigenschaft:** $E[E[X\mid\mathcal F]\mid\mathcal G] = E[X\mid\mathcal G]$ für $\mathcal G \subseteq \mathcal F$.
+- **Bekanntes herausziehen:** $E[YX \mid \mathcal F] = Y\, E[X\mid\mathcal F]$, falls $Y$ $\mathcal F$-messbar ist.
+- **Unabhängigkeit:** $E[X\mid\mathcal F] = E[X]$, falls $X$ unabhängig von $\mathcal F$ ist.
+- **Bedingte Jensen-Ungleichung:** $E[f(X)\mid\mathcal F] \ge f(E[X\mid\mathcal F])$ für konvexes $f$; für konkaves $f$ (etwa $\log$) dreht sich die Ungleichung um.
+
+## Martingale
+
+| Schreibweise | Bedeutung |
+|---|---|
+| $\mathbb F = (\mathcal F_n)_{n \in \mathbb N_0}$ | Filtration, $\mathcal F_n$ = Information bis Zeit $n$ |
+| $\mathcal F_\infty$ | $\sigma\big(\bigcup_n \mathcal F_n\big)$ |
+| adaptiert | $X_n$ ist $\mathcal F_n$-messbar für alle $n$ |
+| vorhersehbar | $Y_n$ ist $\mathcal F_{n-1}$-messbar für alle $n \ge 1$ (wird *vor* Runde $n$ festgelegt) |
+| Martingal | adaptiert, integrierbar, $E[X_n \mid \mathcal F_{n-1}] = X_{n-1}$ |
+| Sub-/Supermartingal | wie oben mit $\ge$ bzw. $\le$ |
+| $(Y \bullet X)_n$ | Martingaltransformation $\sum_{k=1}^n Y_k (X_k - X_{k-1})$ |
+| $X = M + A$ | Doob-Zerlegung: Martingal $M$ plus vorhersehbarer Prozess $A$ mit $A_0 = 0$ |
+| $T$, $X_{T \wedge n}$ | Stoppzeit und gestoppter Prozess |
+
+## Stetige Zeit
+
+| Schreibweise | Bedeutung |
+|---|---|
+| $(B_t)_{t \ge 0}$ | Brownsche Bewegung (Wiener-Prozess) |
+| $(\mathcal F_t)_{t \ge 0}$ | Filtration in stetiger Zeit, für $B$ stets $\mathcal F_t = \sigma(B_r : r \le t)$ |
+| $X_n$, $Z_n$ | einfache Irrfahrt und ihre Schritte $\pm 1$ (wie im W-Theorie-Skript) |
+| $W^{(n)}_t$ | reskalierte Irrfahrt $X_{\lfloor nt\rfloor}/\sqrt n$ |
+| $\mathcal D_n$ | dyadische Punkte $\{k2^{-n} : k = 0, \dots, 2^n\}$ |
+| $\Phi$ | Verteilungsfunktion von $N(0,1)$ |
+| $s \wedge t$ | $\min(s, t)$ |
+| $Q_\Pi$ | Summe der quadrierten Zuwächse von $B$ entlang einer Zerlegung $\Pi$ |
+| $S_t$ | Kurs, z. B. geometrische Brownsche Bewegung $S_0 e^{\sigma B_t + (\mu - \sigma^2/2)t}$ |
+
+## Finanzmathematische Größen
+
+| Schreibweise | Bedeutung |
+|---|---|
+| $V_n$ | Vermögen nach $n$ Runden, $V_0 > 0$ fest |
+| $f_n$ | Anteil des Vermögens, der in Runde $n$ gesetzt wird |
+| $a$ | Nettoquote einer binären Wette: Gewinn $a$ pro gesetztem Euro |
+| $\eta$ | Edge, d.h. Vorteil (Erwartungswert des Nettogewinns pro Euro) |
+| $G(f)$ | Wachstumsrate $E[\log(1 + f R_1)]$ |
+| $b$, $o$ | Aufteilung und Quoten im Pferderennen |
+| $H(p)$, $D(p\,\Vert\,q)$ | Entropie und Kullback-Leibler-Divergenz |

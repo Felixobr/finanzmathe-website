@@ -1,0 +1,794 @@
+---
+title: "Das Kelly-Kriterium"
+subtitle: "Wie viel soll man setzen, wenn man einen Vorteil hat?"
+description: "Herleitung des Kelly-Kriteriums mit bedingten Erwartungen, Doob-Zerlegung und starkem Gesetz der großen Zahlen; Optimalität über Martingale; Zusammenhang mit Maximum-Likelihood und KL-Divergenz; stetige Version."
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+set.seed(2026)
+
+# Farben (feste Reihenfolge)
+pal   <- c("#2a78d6", "#eb6834", "#1baf7a", "#eda100")
+INK   <- "#0b0b0b"
+MUTED <- "#52514e"
+
+theme_set(
+  theme_minimal(base_size = 11) +
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_line(colour = "#e4e3df"),
+          axis.line = element_line(colour = MUTED),
+          axis.text = element_text(colour = MUTED),
+          legend.position = "top",
+          legend.justification = "left",
+          legend.title = element_blank())
+)
+
+# Zahl mit deutschem Dezimalkomma
+de <- function(x, digits = 2) formatC(x, format = "f", digits = digits, decimal.mark = ",")
+```
+
+::: {.callout-note appearance="simple"}
+## Worum es geht
+
+Man wettet wiederholt mit einem Vorteil. Welchen Anteil des Vermögens soll man jeweils setzen?
+Wir zeigen:
+
+1. Der Erwartungswert des Vermögens ist die falsche Zielgröße (@sec-erwartung).
+2. Was fast sicher passiert, bestimmt die **Wachstumsrate** $G(f) = E[\log(1 + fR_1)]$ (@sec-wachstum).
+3. Ihr Maximierer $f^*$ ist das **Kelly-Kriterium** (@sec-kelly), und keine andere Strategie
+   schlägt es auf Dauer (@sec-optimal).
+4. Kelly-Wetten und Maximum-Likelihood-Schätzung sind dasselbe Optimierungsproblem (@sec-ml).
+
+**Vorkenntnisse:** bedingte Erwartung, Martingale und Martingalkonvergenzsatz (W-Theorie-Skript),
+starkes Gesetz der großen Zahlen (Stochastik-Skript, Satz 6.7), ML-Schätzer (Stochastik-Skript, Def. 7.9).
+Die Schreibweisen sind auf der Seite [Notation](../notation.qmd) zusammengefasst.
+:::
+
+## Motivation
+
+Wir dürfen wiederholt auf eine unfaire Münze wetten. Mit Wahrscheinlichkeit $p = 0{,}6$ gewinnen wir
+den Einsatz dazu, mit Wahrscheinlichkeit $q = 0{,}4$ verlieren wir ihn. Jede einzelne Wette hat also
+einen positiven Erwartungswert.
+
+> **Welchen Anteil seines Vermögens soll man in jeder Runde setzen?**
+
+Setzt man zu wenig, verschenkt man den Vorteil. Setzt man alles, ist man nach der ersten verlorenen
+Runde ruiniert. J. L. Kelly (1956) hat gezeigt: Man soll die **erwartete logarithmische Rendite**
+maximieren. Der Logarithmus ist dabei keine Geschmacksfrage, sondern ergibt sich zwingend, sobald man
+fragt, was mit dem Vermögen *fast sicher* passiert.
+
+## Modell {#sec-modell}
+
+::: {#def-wette}
+## Wiederholte Wette
+Sei $(\Omega, \mathcal A, P)$ ein W-Raum und seien $X_1, X_2, \dots$ unabhängige Zufallsvariablen mit
+$\mathcal L_P(X_n) = \mathrm{Ber}(p)$ für ein $p \in (0, 1)$, $q := 1 - p$. Dabei steht $X_n = 1$ für
+„Runde $n$ gewonnen“. Bei Gewinn erhält man das $a$-fache des Einsatzes als Nettogewinn
+(**Quote** $a > 0$), bei Verlust ist der Einsatz weg. Die **Rendite** eines Einsatzes von $1$ in
+Runde $n$ ist also
+$$
+R_n := a X_n - (1 - X_n) \in \{a, -1\}, \qquad
+\eta := E[R_1] = pa - q .
+$$
+$\eta$ heißt **Edge** (erwarteter Gewinn pro eingesetzter Einheit).
+:::
+
+Die Information nach $n$ Runden beschreiben wir durch die Filtration
+$$
+\mathcal F_0 := \{\emptyset, \Omega\}, \qquad \mathcal F_n := \sigma(X_1, \dots, X_n) \quad (n \in \mathbb N).
+$$
+Da die $X_n$ unabhängig sind, ist $R_n$ unabhängig von $\mathcal F_{n-1}$.
+
+::: {#def-strategie}
+## Strategie und Vermögen
+Eine **Strategie** ist ein vorhersehbarer Prozess $f = (f_n)_{n \in \mathbb N}$ mit Werten in $[0, 1)$,
+d. h. $f_n$ ist $\mathcal F_{n-1}$-messbar. Dabei ist $f_n$ der Anteil des Vermögens, der in Runde $n$
+gesetzt wird. Zu einem Startvermögen $V_0 > 0$ ist das **Vermögen**
+$$
+V_n := V_{n-1}\,(1 + f_n R_n) = V_0 \prod_{k=1}^n (1 + f_k R_k), \qquad n \in \mathbb N .
+$$
+Ist $f_n \equiv f$ konstant, schreiben wir $V_n(f)$.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+„Vorhersehbar“ heißt: Über den Einsatz in Runde $n$ entscheidet man nur mit dem, was man nach
+Runde $n-1$ weiß. Wegen $f_n < 1$ ist $1 + f_n R_n \ge 1 - f_n > 0$, das Vermögen bleibt also positiv
+und $\log V_n$ ist wohldefiniert. Bei konstantem $f$ und $S_n := X_1 + \dots + X_n$ Gewinnen gilt
+einfach $V_n(f) = V_0 (1 + fa)^{S_n} (1 - f)^{n - S_n}$.
+:::
+
+## Der Erwartungswert führt in die Irre {#sec-erwartung}
+
+Der naheliegende Ansatz wäre, $E[V_n]$ zu maximieren. Mit bedingten Erwartungen lässt sich $E[V_n]$
+direkt ausrechnen.
+
+::: {#lem-submartingal}
+## Erwartetes Vermögen
+Für jede Strategie $f$ gilt $P$-f.s.
+$$
+E[V_n \mid \mathcal F_{n-1}] = V_{n-1}\,(1 + f_n \eta) .
+$$
+Insbesondere ist $(V_n)_{n \in \mathbb N_0}$ bei $\eta > 0$ ein Submartingal, und für konstantes $f$ ist
+$E[V_n(f)] = V_0 (1 + f\eta)^n$.
+:::
+
+::: {.proof}
+Wegen $0 < V_n \le V_0 (1 + a)^n$ ist $V_n \in \mathcal L^1$, und $V_n$ ist $\mathcal F_n$-messbar.
+$V_{n-1}$ und $f_n$ sind $\mathcal F_{n-1}$-messbar, $R_n$ ist unabhängig von $\mathcal F_{n-1}$.
+Herausziehen, was bekannt ist, und Unabhängigkeit ergeben
+$$
+E[V_n \mid \mathcal F_{n-1}] = V_{n-1} + V_{n-1} f_n\, E[R_n \mid \mathcal F_{n-1}]
+= V_{n-1} + V_{n-1} f_n\, E[R_n] = V_{n-1}(1 + f_n \eta) .
+$$
+Für konstantes $f$ folgt mit der Turmeigenschaft induktiv $E[V_n] = E\bigl[E[V_n \mid \mathcal F_{n-1}]\bigr] = (1 + f\eta)\,E[V_{n-1}]$.
+:::
+
+Bei $\eta > 0$ wächst $E[V_n(f)]$ also streng monoton in $f$. Der „optimale“ Einsatz wäre alles,
+$f = 1$ (das schließt @def-strategie aus, die Rechnung im Beweis gilt aber genauso). Dann ist
+$V_n = 0$, sobald man ein einziges Mal verliert, und
+$$
+P(V_n > 0) = p^n \xrightarrow{n \to \infty} 0 .
+$$
+Der Spieler ist $P$-f.s. irgendwann ruiniert, obwohl $E[V_n] = V_0 \bigl(p(1 + a)\bigr)^n = V_0 (1 + \eta)^n$
+sogar exponentiell wächst. Der Erwartungswert wird von dem einen Pfad getragen, auf dem man jedes Mal
+gewinnt. **Wer nur einen Pfad erlebt, sollte nicht den Erwartungswert maximieren**, sondern das, was
+auf fast jedem Pfad passiert.
+
+## Logarithmisches Wachstum {#sec-wachstum}
+
+### Doob-Zerlegung von $\log V_n$
+
+Logarithmieren macht aus dem Produkt eine Summe:
+$\log V_n = \log V_0 + \sum_{k=1}^n \log(1 + f_k R_k)$. Wir zerlegen sie in einen vorhersehbaren Trend
+und ein Martingal (Doob-Zerlegung, W-Theorie-Skript).
+
+::: {#def-wachstumsrate}
+## Wachstumsrate
+Für $f \in [0, 1)$ heißt
+$$
+G(f) := E[\log(1 + f R_1)] = p \log(1 + fa) + q \log(1 - f)
+$$
+die **Wachstumsrate** zum Einsatzanteil $f$.
+:::
+
+::: {#lem-einsetzen}
+## Einsetzen bei Unabhängigkeit
+Sei $Y$ eine $\mathcal F_{n-1}$-messbare Zufallsvariable mit Werten in $[0,1)$ und $h : [0,1) \times \{a, -1\} \to \mathbb R$
+messbar und beschränkt. Dann gilt $P$-f.s.
+$$
+E[h(Y, R_n) \mid \mathcal F_{n-1}] = H(Y), \qquad H(y) := E[h(y, R_n)] .
+$$
+Die Aussage bleibt richtig für $h \ge 0$ oder $h \le C$, wenn man Werte in $[-\infty, \infty]$ zulässt.
+:::
+
+::: {.proof}
+Da $R_n$ nur die Werte $a$ und $-1$ annimmt, ist
+$h(Y, R_n) = \sum_{s \in \{a, -1\}} h(Y, s)\, \mathbf 1_{\{R_n = s\}}$. Die Zufallsvariable $h(Y, s)$ ist
+$\mathcal F_{n-1}$-messbar und beschränkt, $\mathbf 1_{\{R_n = s\}}$ ist unabhängig von $\mathcal F_{n-1}$.
+Herausziehen, was bekannt ist, und Unabhängigkeit ergeben
+$$
+E[h(Y, R_n) \mid \mathcal F_{n-1}] = \sum_{s} h(Y, s)\, P(R_n = s) = H(Y) .
+$$
+Für $h \ge 0$ wendet man das auf $h \wedge N$ an und lässt $N \to \infty$ (bedingte monotone
+Konvergenz); für $h \le C$ betrachtet man $C - h \ge 0$.
+:::
+
+Mit $h(y, r) = \log(1 + yr) \le \log(1 + a)$ erhalten wir $E[\log(1 + f_k R_k) \mid \mathcal F_{k-1}] = G(f_k)$.
+Ist zusätzlich $f_k \le c$ für eine Konstante $c < 1$ (etwa bei konstantem $f$), so sind alle Summanden
+beschränkt, und es ist
+
+$$
+\log V_n = \log V_0 + \underbrace{\sum_{k=1}^n G(f_k)}_{=: A_n \text{ (vorhersehbar)}}
++ \underbrace{\sum_{k=1}^n \bigl(\log(1 + f_k R_k) - G(f_k)\bigr)}_{=: M_n \text{ (Martingal)}}
+$$ {#eq-doob}
+
+die Doob-Zerlegung von $(\log V_n)_n$: $A$ ist der Trend, den man selbst über die Wahl von $f$ steuert,
+$M$ ist das Rauschen ohne Drift.
+
+### Was fast sicher passiert
+
+::: {#thm-wachstum}
+## Wachstumsrate
+Für konstantes $f \in [0, 1)$ gilt
+$$
+\frac{1}{n} \log \frac{V_n(f)}{V_0} \xrightarrow{n \to \infty} G(f) \qquad P\text{-f.s.}
+$$
+:::
+
+::: {.proof}
+Die Zufallsvariablen $\log(1 + fR_k)$, $k \in \mathbb N$, sind u.i.v. und beschränkt, insbesondere in
+$\mathcal L^1$, mit Erwartungswert $G(f)$. Das starke Gesetz der großen Zahlen (Stochastik-Skript,
+Satz 6.7) liefert die Behauptung. In der Sprache von @eq-doob: $A_n = nG(f)$ und $M_n / n \to 0$ $P$-f.s.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Für große $n$ gilt also auf fast jedem Pfad $V_n(f) = V_0\, e^{n(G(f) + o(1))}$. Das Vorzeichen von
+$G(f)$ entscheidet über alles: Bei $G(f) > 0$ wächst das Vermögen exponentiell, bei $G(f) < 0$ geht es
+gegen $0$, und zwar **unabhängig davon, dass $E[V_n(f)]$ wächst**. Wer das typische Vermögen
+maximieren will, muss also $G$ maximieren.
+:::
+
+## Das Kelly-Kriterium {#sec-kelly}
+
+::: {#thm-kelly}
+## Kelly-Kriterium
+Sei $\eta = pa - q > 0$. Dann ist $G$ auf $[0, 1)$ streng konkav und besitzt genau einen Maximierer,
+$$
+f^* = \frac{\eta}{a} = p - \frac{q}{a} \in (0, 1) .
+$$
+Ist $\eta \le 0$, so ist $f^* = 0$: Man setzt nichts.
+:::
+
+::: {.proof}
+Für $f \in [0, 1)$ ist
+$$
+G'(f) = \frac{pa}{1 + fa} - \frac{q}{1 - f}, \qquad
+G''(f) = -\frac{p a^2}{(1 + fa)^2} - \frac{q}{(1 - f)^2} < 0 .
+$$
+Also ist $G$ streng konkav und $G'$ streng fallend. Aus $G'(f) = 0$ folgt $pa(1 - f) = q(1 + fa)$, d. h.
+$pa - q = fa(p + q) = fa$, also $f = \eta / a$. Wegen $G'(0) = \eta > 0$ und $G'(f) \to -\infty$ für
+$f \uparrow 1$ liegt diese Nullstelle in $(0, 1)$. Bei $\eta \le 0$ ist $G'(0) \le 0$, also $G' < 0$ auf
+$(0,1)$ und $G$ maximal in $0$.
+:::
+
+Die Kelly-Formel lautet in Worten: **Edge geteilt durch Quote.** Bei Quote $a = 1$ ist $f^* = p - q$.
+
+::: {#exm-muenze}
+## Münze mit $p = 0{,}6$ und $a = 1$
+Es ist $f^* = 0{,}2$: Man setzt in jeder Runde $20\,\%$ des aktuellen Vermögens. Die Wachstumsrate ist
+$$
+G(f^*) = 0{,}6 \log 1{,}2 + 0{,}4 \log 0{,}8 \approx 0{,}0201 ,
+$$
+das Vermögen wächst also typischerweise um etwa $2\,\%$ pro Runde, nach $1000$ Runden um den Faktor
+$e^{20{,}1} \approx 5 \cdot 10^8$.
+:::
+
+::: {.callout-note appearance="simple"}
+## Bemerkung
+Bei $a = 1$ ist $G(f^*) = p\log(2p) + q\log(2q) = \log 2 - H(p)$ mit der Entropie
+$H(p) = -p\log p - q \log q$. Kelly hat das Kriterium ursprünglich informationstheoretisch formuliert.
+In @sec-ml wird klar, warum hier eine Entropie auftaucht.
+:::
+
+```{r}
+#| label: fig-wachstum
+#| fig-cap: "Wachstumsrate $G(f)$ für $p = 0{,}6$, $a = 1$. Das Maximum liegt bei $f^* = 0{,}2$. Ab $f_c \\approx 0{,}39$ ist $G$ negativ: Das Vermögen geht dann f.s. gegen 0, obwohl jede einzelne Wette einen positiven Erwartungswert hat."
+#| fig-width: 7.5
+#| fig-height: 4.2
+p <- 0.6; a <- 1; q <- 1 - p
+G <- function(f) p * log1p(f * a) + q * log1p(-f)
+f_star <- p - q / a
+f_c <- uniroot(G, c(f_star, 1 - 1e-9), tol = 1e-12)$root   # zweite Nullstelle
+
+df <- data.frame(f = seq(0, 0.6, length.out = 400))
+df$G <- G(df$f)
+pts <- data.frame(f = c(f_star, f_c), G = c(G(f_star), 0), farbe = pal[1:2])
+
+ggplot(df, aes(f, G)) +
+  geom_hline(yintercept = 0, colour = MUTED) +
+  geom_ribbon(data = subset(df, G < 0), aes(ymin = G, ymax = 0),
+              fill = pal[2], alpha = 0.15) +
+  geom_line(colour = pal[1], linewidth = 1) +
+  geom_point(data = pts, aes(fill = farbe), shape = 21, size = 3.5,
+             stroke = 1.5, colour = "white") +
+  scale_fill_identity() +
+  annotate("text", x = f_star + 0.015, y = G(f_star) - 0.003, hjust = 0, vjust = 1,
+           colour = INK, label = paste0("f* = ", de(f_star), "\nG = ", de(G(f_star), 4))) +
+  annotate("text", x = f_c + 0.012, y = 0.005, hjust = 0, colour = INK,
+           label = paste0("f_c ≈ ", de(f_c, 3))) +
+  annotate("text", x = 0.53, y = -0.012, vjust = 1, colour = MUTED,
+           label = "Überwetten:\nVermögen → 0") +
+  scale_x_continuous(labels = function(v) de(v, 1)) +
+  scale_y_continuous(labels = function(v) de(v, 2)) +
+  coord_cartesian(ylim = c(-0.08, 0.035)) +
+  labs(x = "Einsatzanteil f", y = "Wachstumsrate G(f) pro Runde")
+```
+
+Die Kurve ist um $f^*$ fast symmetrisch: Mit dem doppelten Kelly-Einsatz landet man ungefähr bei
+Wachstum null (genauer in @sec-bruchteil).
+
+## Optimalität {#sec-optimal}
+
+### Vergleich konstanter Strategien
+
+::: {#cor-konstant}
+## Kelly schlägt jede feste Strategie
+Sei $\eta > 0$ und $f_c \in (f^*, 1)$ die zweite Nullstelle von $G$. Dann gilt $P$-f.s.:
+
+(a) Für $0 < f < f_c$ ist $V_n(f) \to \infty$.
+(b) Für $f_c < f < 1$ ist $V_n(f) \to 0$, obwohl $E[V_n(f)] \to \infty$.
+(c) Für $f \ne f^*$ ist $V_n(f^*) / V_n(f) \to \infty$.
+:::
+
+::: {.proof}
+Die Teile (a) und (b) folgen aus @thm-wachstum, da $G(0) = G(f_c) = 0$ und $G$ streng konkav ist,
+also $G > 0$ auf $(0, f_c)$ und $G < 0$ auf $(f_c, 1)$. Für (c) wendet man @thm-wachstum auf beide Strategien an (dieselben $X_n$):
+$\frac1n \log \frac{V_n(f^*)}{V_n(f)} \to G(f^*) - G(f) > 0$ $P$-f.s.
+:::
+
+### Vergleich mit beliebigen Strategien
+
+Darf man den Einsatz in jeder Runde neu wählen, etwa abhängig vom bisherigen Verlauf, ändert sich
+nichts: Kelly bleibt optimal. Der Beweis ist ein schönes Beispiel für Martingalargumente.
+
+::: {#thm-optimal}
+## Optimalität der Kelly-Strategie
+Sei $\eta > 0$, $V^*_n := V_n(f^*)$ und $f = (f_n)_n$ eine beliebige Strategie mit Vermögen $V_n$
+(gleiches $V_0$). Dann gilt:
+
+(a) $E[\log V_n] \le E[\log V^*_n] = \log V_0 + n\,G(f^*)$ für alle $n \in \mathbb N$.
+(b) $Q_n := V_n / V^*_n$ ist ein nichtnegatives Martingal bzgl. $(\mathcal F_n)_{n \in \mathbb N_0}$ mit $E[Q_n] = 1$.
+    Insbesondere konvergiert $Q_n$ $P$-f.s. gegen eine Zufallsvariable $Q_\infty \in [0, \infty)$, und
+    $$
+    \sup_{n \in \mathbb N_0} \frac{V_n}{V^*_n} < \infty \qquad P\text{-f.s.}
+    $$
+:::
+
+::: {.proof}
+**Zu (a).** Nach @lem-einsetzen und der Turmeigenschaft ist
+$E[\log V_n] = \log V_0 + \sum_{k=1}^n E\bigl[E[\log(1 + f_k R_k) \mid \mathcal F_{k-1}]\bigr] = \log V_0 + \sum_{k=1}^n E[G(f_k)]$,
+und $G(f_k) \le G(f^*)$ nach @thm-kelly.
+
+**Zu (b).** Es ist $Q_n = Q_{n-1}\, Z_n$ mit $Z_n := \frac{1 + f_n R_n}{1 + f^* R_n}$. Die Faktoren sind beschränkt,
+$0 < Z_n \le \frac{1 + a}{1 - f^*}$, also $Q_n \in \mathcal L^1$. Nach @lem-einsetzen ist
+$E[Z_n \mid \mathcal F_{n-1}] = h(f_n)$ mit
+$$
+h(y) := E\Bigl[\frac{1 + yR_1}{1 + f^* R_1}\Bigr]
+= 1 + (y - f^*)\, E\Bigl[\frac{R_1}{1 + f^* R_1}\Bigr]
+= 1 + (y - f^*)\, G'(f^*) = 1 ,
+$$
+denn $\frac{1 + yr}{1 + f^*r} = 1 + (y - f^*) \frac{r}{1 + f^* r}$ und $G'(f^*) = 0$. Herausziehen
+liefert $E[Q_n \mid \mathcal F_{n-1}] = Q_{n-1}\,E[Z_n \mid \mathcal F_{n-1}] = Q_{n-1}$. Wegen $Q_n \ge 0$
+ist $\sup_n E[(Q_n)_+] = E[Q_0] = 1 < \infty$, und der Martingalkonvergenzsatz (W-Theorie-Skript) liefert
+die f.s. Konvergenz gegen ein $Q_\infty$ mit $E[|Q_\infty|] < \infty$. Eine f.s. konvergente reelle Folge ist beschränkt.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Teil (b) ist die eigentliche Stärke des Kriteriums: **Keine Strategie, wie raffiniert sie auch auf den
+bisherigen Verlauf reagiert, kann das Kelly-Vermögen um mehr als einen (zufälligen) endlichen Faktor
+übertreffen.** Gleichzeitig zeigt @cor-konstant (c), dass jede *feste* falsche Strategie gegenüber
+Kelly exponentiell zurückfällt. Für konstantes $f \ne f^*$ ist $Q_n$ also ein Martingal mit
+$E[Q_n] = 1$, das trotzdem f.s. gegen $0$ geht: Es ist nicht gleichgradig integrierbar.
+:::
+
+### Simulation
+
+```{r}
+#| label: fig-pfade
+#| fig-cap: "Median von $\\log_{10} V_n$ über 2000 simulierte Pfade (Linien) und das 10 %- bis 90 %-Band für Kelly und $f = 0{,}4$ (Flächen); $p = 0{,}6$, $a = 1$, $V_0 = 1$."
+#| fig-width: 7.5
+#| fig-height: 4.2
+n <- 1000; m <- 2000
+X <- matrix(runif(m * n) < p, nrow = m)        # TRUE = Gewinn, Zeile = Pfad
+fs <- c(0.1, 0.2, 0.3, 0.4)
+labels <- c("f = 0,1 (halb Kelly)", "f = 0,2 (Kelly)", "f = 0,3", "f = 0,4 (über f_c)")
+
+# kumulierte Log-Renditen je Pfad (m x n) für jeden Einsatzanteil
+cum_log <- lapply(fs, function(fv) {
+  steps <- ifelse(X, log1p(fv * a), log1p(-fv))
+  t(apply(steps, 1, cumsum))
+})
+
+pfade <- do.call(rbind, lapply(seq_along(fs), function(i) {
+  logV <- cbind(0, cum_log[[i]]) / log(10)
+  qs <- apply(logV, 2, quantile, probs = c(0.1, 0.5, 0.9))
+  data.frame(n = 0:n, lo = qs[1, ], med = qs[2, ], hi = qs[3, ],
+             f = fs[i], label = labels[i])
+}))
+pfade$label <- factor(pfade$label, levels = labels)
+ende <- subset(pfade, n == max(n) & f %in% c(0.1, 0.2, 0.4))
+ende$text <- c("f = 0,1 und 0,3", "f = 0,2", "f = 0,4")
+
+ggplot(pfade, aes(n, med, colour = label)) +
+  geom_ribbon(data = subset(pfade, f %in% c(0.2, 0.4)),
+              aes(ymin = lo, ymax = hi, fill = label), colour = NA, alpha = 0.12) +
+  geom_hline(yintercept = 0, colour = MUTED) +
+  geom_line(linewidth = 0.7) +
+  geom_text(data = ende, aes(label = text), hjust = 0, nudge_x = 12,
+            colour = INK, size = 3.5) +
+  scale_colour_manual(values = setNames(pal, labels)) +
+  scale_fill_manual(values = setNames(pal, labels), guide = "none") +
+  scale_x_continuous(breaks = seq(0, n, 200), limits = c(0, 1200)) +
+  labs(x = "Runde n", y = expression(log[10] ~ V[n]))
+```
+
+Man sieht @cor-konstant: $f^* = 0{,}2$ wächst am schnellsten. $f = 0{,}1$ und $f = 0{,}3$ wachsen
+langsamer und fast gleich schnell, weil $G$ um $f^*$ nahezu symmetrisch ist. $f = 0{,}4 > f_c$ geht
+gegen null.
+
+## Bruchteil-Kelly {#sec-bruchteil}
+
+Kelly maximiert das Wachstum, schwankt aber stark. In der Praxis setzt man deshalb oft nur einen
+Bruchteil $\lambda f^*$ mit $\lambda \in (0, 1)$. Was das kostet, zeigt eine Taylor-Entwicklung.
+
+::: {.callout-note appearance="simple"}
+## Bemerkung (quadratische Näherung)
+Für eine allgemeine Rendite $R$ und kleine $f$ liefert $\log(1 + x) = x - \tfrac{x^2}{2} + O(x^3)$
+$$
+G(f) = E[\log(1 + fR)] \approx f\,E[R] - \frac{f^2}{2}\,E[R^2],
+\qquad f^* \approx \frac{E[R]}{E[R^2]} .
+$$
+Die Näherung ist eine Parabel mit Scheitel $f^*$ und Nullstellen $0$ und $2f^*$. Für $f = \lambda f^*$ folgt
+$$
+\frac{G(\lambda f^*)}{G(f^*)} \approx \lambda(2 - \lambda).
+$$
+Die Standardabweichung von $\log(1 + fR)$ ist ungefähr proportional zu $f$, also zu $\lambda$.
+:::
+
+| $\lambda$ | Anteil des Kelly-Wachstums | Schwankung relativ zu Kelly |
+|:---:|:---:|:---:|
+| $0{,}25$ | $44\,\%$ | $25\,\%$ |
+| $0{,}5$ | $75\,\%$ | $50\,\%$ |
+| $1$ | $100\,\%$ | $100\,\%$ |
+| $1{,}5$ | $75\,\%$ | $150\,\%$ |
+| $2$ | $\approx 0\,\%$ | $200\,\%$ |
+
+: Bruchteil-Kelly in der quadratischen Näherung {#tbl-bruchteil}
+
+**Halb-Kelly kostet nur ein Viertel des Wachstums, halbiert aber die Schwankung.** Überwetten
+($\lambda > 1$) ist dagegen strikt schlechter als das entsprechende Unterwetten: gleiches Wachstum,
+mehr Risiko. Da man $p$ in der Praxis nur schätzt, ist ein Bruchteil von Kelly auch eine Versicherung
+gegen Schätzfehler (vgl. Übung 3).
+
+Wie stark die Rückschläge sind, zeigt die folgende Simulation. In der stetigen Näherung
+(@sec-stetig) gilt die klassische Formel (ohne Beweis): Die Wahrscheinlichkeit, dass das Vermögen
+*irgendwann* auf den Anteil $x \in (0, 1)$ des Startwerts fällt, ist bei voller Kelly-Strategie genau
+$x$, bei Bruchteil $\lambda$ dagegen $x^{2/\lambda - 1}$. Mit voller Kelly-Strategie halbiert man sein
+Vermögen also mit Wahrscheinlichkeit $\tfrac12$ mindestens einmal.
+
+```{r}
+#| label: fig-drawdown
+#| fig-cap: "Anteil der simulierten Pfade, deren Vermögen innerhalb von 1000 Runden mindestens einmal unter den Anteil $x$ des Startkapitals fällt, im Vergleich mit der Formel aus der stetigen Näherung."
+#| fig-width: 7.5
+#| fig-height: 4.2
+xs <- seq(0.05, 0.95, length.out = 40)
+dd <- do.call(rbind, lapply(1:2, function(i) {
+  run_min <- pmin(0, apply(cum_log[[i]], 1, min))
+  data.frame(x = xs, prob = sapply(xs, function(x) mean(run_min <= log(x))),
+             label = labels[i])
+}))
+formel <- rbind(data.frame(x = xs, prob = xs,   label = "Formel Kelly: x"),
+                data.frame(x = xs, prob = xs^3, label = "Formel halb Kelly: x³"))
+
+ggplot(dd, aes(x, prob)) +
+  geom_line(data = formel, aes(linetype = label), colour = MUTED) +
+  geom_line(aes(colour = label), linewidth = 1) +
+  scale_colour_manual(values = setNames(pal[1:2], labels[1:2])) +
+  scale_linetype_manual(values = c("Formel Kelly: x" = "dashed", "Formel halb Kelly: x³" = "dotted")) +
+  scale_x_continuous(labels = function(v) de(v, 2)) +
+  scale_y_continuous(labels = function(v) de(v, 2)) +
+  labs(x = "Schwelle x (Anteil des Startkapitals)", y = "P(min V ≤ x · V0)")
+```
+
+## Kelly, Maximum-Likelihood und KL-Divergenz {#sec-ml}
+
+Das Vermögen ist ein Produkt $\prod_k (\dots)$, genau wie eine Likelihood in einem Produktmodell.
+In diesem Abschnitt sehen wir, dass das kein Zufall ist: **Das Vermögen eines Spielers ist die
+Likelihood seines Modells**, und Kelly-Wetten ist Maximum-Likelihood-Schätzung.
+
+### Pferderennen
+
+::: {#def-pferderennen}
+## Pferderennen
+Es laufen $m$ Pferde. Seien $X_1, X_2, \dots$ u.i.v. mit Werten in $[m] = \{1, \dots, m\}$ und
+$P(X_k = i) = p_i > 0$; $X_k$ ist der Sieger von Rennen $k$, und $p = (p_1, \dots, p_m)$ ist eine
+Zähldichte. Auf Pferd $i$ zahlt der Buchmacher die **Quote** $o_i > 0$ (Auszahlung pro eingesetzter
+Einheit, inklusive Einsatz). Vor jedem Rennen verteilt der Spieler sein **ganzes** Vermögen nach einer
+Zähldichte $b = (b_1, \dots, b_m)$ auf die Pferde. Dann ist (mit $\mathcal F_n := \sigma(X_1, \dots, X_n)$
+wie in @sec-modell)
+$$
+V_n = V_{n-1}\, b_{X_n} o_{X_n} = V_0 \prod_{k=1}^n b_{X_k}\, o_{X_k} .
+$$
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Die Münzwette ist ein Spezialfall: $m = 2$, Quote $a = 1$, also $o_1 = o_2 = 2$, und
+$(b_1, b_2) = \bigl(\tfrac{1+f}{2}, \tfrac{1-f}{2}\bigr)$. Dann ist $b_{X} o_{X} = 1 + f$ bei Gewinn und
+$1 - f$ bei Verlust, genau wie vorher. Der Trick: Wer je $\tfrac{1-f}{2}$ auf „Gewinn“ und „Verlust“
+setzt, bekommt diesen Teil in jedem Fall zurück, hält ihn also effektiv als Bargeld. Nur der Rest $f$
+ist echt riskiert.
+:::
+
+### Das Vermögen ist eine Likelihood
+
+Fasst man $b$ als Parameter auf, so ist $[m]^n$ mit den Zähldichten
+$\rho^{(n)}_b(x_1, \dots, x_n) = \prod_{k=1}^n b_{x_k}$ ein diskretes Produktmodell (Stochastik-Skript,
+Def. 7.4). Seine Likelihood-Funktion zum Beobachtungswert $x = (x_1, \dots, x_n)$ ist
+$L_x(b) = \prod_{k=1}^n b_{x_k}$. Also gilt
+
+$$
+\log V_n = \log V_0 + \sum_{k=1}^n \log o_{X_k} + \log L_{(X_1, \dots, X_n)}(b) .
+$$ {#eq-vermoegen-likelihood}
+
+Der mittlere Term hängt nicht von $b$ ab. **Im Nachhinein hat also derjenige Spieler mit fester
+Strategie am meisten Geld, dessen $b$ die Likelihood maximiert**, also der ML-Schätzer
+(Stochastik-Skript, Def. 7.9). Um ihn zu bestimmen, brauchen wir die KL-Divergenz.
+
+::: {#def-kl}
+## Kullback-Leibler-Divergenz und Entropie
+Für Zähldichten $p, q$ auf $[m]$ heißt
+$$
+D(p \,\|\, q) := \sum_{i :\, p_i > 0} p_i \log\frac{p_i}{q_i} \in [0, \infty]
+$$
+**Kullback-Leibler-Divergenz** (mit $D(p\,\|\,q) = \infty$, falls $q_i = 0 < p_i$ für ein $i$).
+$H(p) := -\sum_i p_i \log p_i$ heißt **Entropie** von $p$ (mit $0 \log 0 := 0$).
+:::
+
+::: {#lem-gibbs}
+## Gibbs-Ungleichung
+Für Zähldichten $p, q$ auf $[m]$ gilt $D(p\,\|\,q) \ge 0$, mit Gleichheit genau dann, wenn $p = q$.
+:::
+
+::: {.proof}
+O.B.d.A. sei $q_i > 0$ für alle $i$ mit $p_i > 0$ (sonst ist $D = \infty$). Sei $X$ eine Zufallsvariable
+mit $\mathcal L_P(X) = p$. Da $-\log$ konvex ist, liefert die Jensen-Ungleichung (W-Theorie-Skript)
+$$
+-D(p\,\|\,q) = E\Bigl[\log \frac{q_X}{p_X}\Bigr] \le \log E\Bigl[\frac{q_X}{p_X}\Bigr]
+= \log \sum_{i :\, p_i > 0} q_i \le \log 1 = 0 .
+$$
+Weil $\log$ *streng* konkav ist, gilt in der Jensen-Ungleichung Gleichheit nur, wenn $q_X / p_X$
+$P$-f.s. konstant ist, also $q_i = c\,p_i$ für alle $i$ mit $p_i > 0$. Gleichheit im zweiten Schritt
+erzwingt $\sum_{p_i > 0} q_i = 1$, also $c = 1$ und $q = p$.
+:::
+
+::: {#cor-ml}
+## ML-Schätzer im Pferderennen
+Sei $\hat p_i := \frac1n \#\{k \in [n] : x_k = i\}$ die empirische Verteilung von $x \in [m]^n$. Dann ist
+$$
+\frac1n \log L_x(b) = -H(\hat p) - D(\hat p\,\|\,b),
+$$
+und der eindeutige ML-Schätzer ist $\hat b = \hat p$, die relativen Häufigkeiten.
+:::
+
+::: {.proof}
+$\frac1n \sum_{k} \log b_{x_k} = \sum_i \hat p_i \log b_i = \sum_i \hat p_i \log \hat p_i - \sum_i \hat p_i \log \frac{\hat p_i}{b_i}$.
+Der erste Term hängt nicht von $b$ ab, der zweite ist nach @lem-gibbs genau für $b = \hat p$ minimal.
+:::
+
+Der beste Spieler im Nachhinein ist also der, der mit den tatsächlich beobachteten Häufigkeiten
+gewettet hätte.
+
+### Wachstumsrate und optimale Strategie
+
+Wie in @thm-wachstum liefert das starke Gesetz der großen Zahlen $P$-f.s.
+$$
+\frac1n \log\frac{V_n}{V_0} \longrightarrow W(b) := E\bigl[\log(b_{X_1} o_{X_1})\bigr]
+= \sum_{i=1}^m p_i \log(b_i o_i) .
+$$
+
+::: {#thm-pferderennen}
+## Kelly im Pferderennen
+Für jede Zähldichte $b$ auf $[m]$ gilt
+$$
+W(b) = \sum_{i=1}^m p_i \log o_i - H(p) - D(p\,\|\,b) .
+$$
+Insbesondere ist $b^* = p$ die eindeutige wachstumsoptimale Strategie, und zwar **unabhängig von den
+Quoten**, und wer mit einem falschen Modell $q$ wettet, verliert pro Rennen genau
+$$
+W(p) - W(q) = D(p\,\|\,q) .
+$$
+Bei fairen Quoten $o_i = 1/r_i$ zu einer Zähldichte $r$ (der Verteilung, die der Buchmacher annimmt)
+ist $W(b) = D(p\,\|\,r) - D(p\,\|\,b)$.
+:::
+
+::: {.proof}
+$\sum_i p_i \log b_i = \sum_i p_i \log p_i - \sum_i p_i \log\frac{p_i}{b_i} = -H(p) - D(p\,\|\,b)$; der
+Rest folgt aus @lem-gibbs. Bei $o_i = 1/r_i$ ist $\sum_i p_i \log o_i - H(p) = \sum_i p_i \log\frac{p_i}{r_i} = D(p\,\|\,r)$.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Die letzte Formel ist sehr anschaulich: **Man verdient genau so viel, wie man die Welt besser kennt
+als der Buchmacher**, gemessen als KL-Abstand zur Wahrheit $p$. Wer dieselbe Verteilung benutzt wie
+der Buchmacher ($b = r$), hat Wachstum null, wer schlechter liegt als er, verliert.
+:::
+
+### Maximum-Likelihood minimiert die KL-Divergenz
+
+Für ein Modell $q$ liefert das starke Gesetz der großen Zahlen $P$-f.s.
+$$
+\frac1n \log L_{(X_1,\dots,X_n)}(q) = \frac1n \sum_{k=1}^n \log q_{X_k}
+\longrightarrow \sum_i p_i \log q_i = -H(p) - D(p\,\|\,q) .
+$$
+Die mittlere Log-Likelihood zu maximieren heißt also asymptotisch, $D(p\,\|\,q)$ zu minimieren, und
+nach @thm-pferderennen ist das dasselbe, wie die Wachstumsrate zu maximieren. **ML-Schätzung und
+Kelly-Wetten sind zwei Lesarten desselben Optimierungsproblems.** Außerdem ist $\hat p$ nach dem starken
+Gesetz der großen Zahlen konsistent (Stochastik-Skript, Def. 7.8), $\hat p \to p$ $P$-f.s. Deshalb
+erreicht ein Spieler, der in Rennen $n+1$ mit den (leicht geglätteten) Häufigkeiten aus den ersten $n$
+Rennen wettet, langfristig dieselbe Wachstumsrate wie jemand, der $p$ kennt.
+
+### Der Likelihood-Quotient als Martingal
+
+Wettet ein zweiter Spieler mit einer Strategie $(b^{(n)})_n$, wobei $b^{(n)}$ eine
+$\mathcal F_{n-1}$-messbare zufällige Zähldichte ist, so ist das Vermögensverhältnis nach
+@eq-vermoegen-likelihood der **Likelihood-Quotient**
+$$
+Q_n := \frac{V_n(b)}{V_n(p)} = \prod_{k=1}^n \frac{b^{(k)}_{X_k}}{p_{X_k}} ,
+\qquad
+E\Bigl[\frac{b^{(n)}_{X_n}}{p_{X_n}} \Bigm| \mathcal F_{n-1}\Bigr] = \sum_{i=1}^m p_i \frac{b^{(n)}_i}{p_i} = 1 .
+$$
+Genau wie in @thm-optimal ist $(Q_n)$ ein nichtnegatives Martingal (für konstantes $b$ ist es das
+Produktmartingal aus dem W-Theorie-Skript) und konvergiert $P$-f.s. Für konstantes $b \ne p$ ist
+$\frac1n \log Q_n \to -D(p\,\|\,b) < 0$, also $Q_n \to 0$ $P$-f.s., obwohl $E[Q_n] = 1$ für alle $n$.
+
+### Simulation: drei Pferde
+
+```{r}
+#| label: fig-pferde
+#| fig-cap: "Ein simulierter Verlauf von $\\log V_n$ über 2000 Rennen mit $p = (0{,}5;\\ 0{,}3;\\ 0{,}2)$ und fairen Quoten zur Gleichverteilung $r$ ($o_i = 3$). Gestrichelt: die theoretischen Geraden $n \\cdot W(b)$."
+#| fig-width: 7.5
+#| fig-height: 4.2
+p_w <- c(0.5, 0.3, 0.2)
+r_w <- rep(1/3, 3)
+o_w <- 1 / r_w
+KL  <- function(p, q) sum(ifelse(p > 0, p * log(p / q), 0))
+n_r <- 2000
+X_r <- sample(1:3, n_r, replace = TRUE, prob = p_w)
+
+strategien <- list(
+  "Kelly: b = p"                 = p_w,
+  "Falsches Modell q"            = c(0.4, 0.4, 0.2),
+  "Buchmacher-Verteilung: b = r" = r_w
+)
+pfad <- function(b) cumsum(log(b[X_r] * o_w[X_r]))
+
+# lernender Spieler: Häufigkeiten der bisherigen Rennen, mit +1 geglättet (Laplace)
+zaehler <- matrix(1, nrow = n_r, ncol = 3)
+for (k in 2:n_r) {
+  zaehler[k, ] <- zaehler[k - 1, ]
+  zaehler[k, X_r[k - 1]] <- zaehler[k, X_r[k - 1]] + 1
+}
+b_lern <- zaehler / rowSums(zaehler)
+lern <- cumsum(log(b_lern[cbind(1:n_r, X_r)] * o_w[X_r]))
+
+namen <- c(names(strategien), "Lernend: Häufigkeiten")
+df_p <- rbind(
+  do.call(rbind, lapply(names(strategien), function(s)
+    data.frame(n = 1:n_r, logV = pfad(strategien[[s]]), name = s))),
+  data.frame(n = 1:n_r, logV = lern, name = namen[4])
+)
+df_p$name <- factor(df_p$name, levels = namen)
+W <- c(sapply(strategien, function(b) KL(p_w, r_w) - KL(p_w, b)), KL(p_w, r_w))
+theo <- data.frame(name = factor(namen, levels = namen), W = W)[1:3, ]  # Lernend hat dieselbe Rate wie Kelly
+
+ggplot(df_p, aes(n, logV, colour = name)) +
+  geom_abline(data = theo, aes(intercept = 0, slope = W, colour = name),
+              linetype = "dashed", linewidth = 0.4, show.legend = FALSE) +
+  geom_line(linewidth = 0.8) +
+  scale_colour_manual(values = setNames(pal, namen)) +
+  labs(x = "Rennen n", y = expression(log ~ V[n])) +
+  guides(colour = guide_legend(nrow = 2))
+```
+
+```{r}
+#| label: tbl-pferde
+#| tbl-cap: "Theoretische Wachstumsraten $W(b) = D(p \\Vert r) - D(p \\Vert b)$ und in der Simulation beobachtete $\\frac1n \\log V_n$ nach 2000 Rennen."
+data.frame(
+  Strategie = namen,
+  `D(p || b)` = c(sapply(strategien, function(b) de(KL(p_w, b), 4)), "→ 0"),
+  `W(b)` = de(W, 4),
+  `beobachtet` = de(c(sapply(strategien, function(b) tail(pfad(b), 1)), tail(lern, 1)) / n_r, 4),
+  check.names = FALSE
+) |> knitr::kable(align = "lrrr", row.names = FALSE)
+```
+
+Der lernende Spieler zahlt am Anfang Lehrgeld. Danach verläuft seine Kurve parallel zur Kelly-Kurve:
+Sein Rückstand wächst nur wie $\log n$, seine Wachstumsrate ist also dieselbe.
+
+## Ausblick: stetige Zeit {#sec-stetig}
+
+::: {.callout-note appearance="simple"}
+## Hinweis
+Dieser Abschnitt benutzt stochastische Integration (Itô-Formel), die in den beiden Skripten nicht
+vorkommt. Er ist als Ausblick gedacht.
+:::
+
+Das Vermögen wird jetzt zwischen einer risikolosen Anlage mit Zins $r$ und einer Aktie aufgeteilt,
+die einer **geometrischen Brownschen Bewegung** folgt, $dS_t = \mu S_t\,dt + \sigma S_t\,dB_t$ mit
+einer Brownschen Bewegung $(B_t)_{t \ge 0}$. Hält man stets den Anteil $f$ des Vermögens in der Aktie
+(kontinuierliches Umschichten), so ist
+$$
+\frac{dV_t}{V_t} = \bigl(r + f(\mu - r)\bigr)\,dt + f\sigma\,dB_t ,
+\qquad
+\log V_t = \log V_0 + \Bigl(r + f(\mu - r) - \tfrac{1}{2}f^2\sigma^2\Bigr)t + f\sigma B_t
+$$
+nach der Itô-Formel. Wegen $B_t / t \to 0$ $P$-f.s. ist die Wachstumsrate
+$$
+g(f) := \lim_{t \to \infty} \frac1t \log\frac{V_t}{V_0} = r + f(\mu - r) - \tfrac{1}{2}f^2\sigma^2 ,
+$$
+und das ist jetzt **exakt** eine Parabel, die stetige Version der quadratischen Näherung aus
+@sec-bruchteil.
+
+::: {#thm-merton}
+## Kelly in stetiger Zeit
+$g$ wird maximiert bei
+$$
+f^* = \frac{\mu - r}{\sigma^2}, \qquad g(f^*) = r + \frac{\theta^2}{2}, \qquad
+\theta := \frac{\mu - r}{\sigma} \ \text{(Sharpe-Ratio).}
+$$
+:::
+
+Das ist Mertons optimales Portfolio für einen Investor mit logarithmischem Nutzen. Der Term
+$-\tfrac12 f^2\sigma^2$ heißt **Volatility Drag**: Schwankung kostet Wachstum, auch wenn sie den
+Erwartungswert nicht ändert.
+
+```{r}
+#| label: fig-merton
+#| fig-cap: "Wachstumsrate $g(f)$ für $\\mu = 8\\,\\%$, $r = 2\\,\\%$, $\\sigma = 20\\,\\%$. Kelly empfiehlt hier $f^* = 1{,}5$, also 150 % in Aktien, finanziert mit Kredit."
+#| fig-width: 7.5
+#| fig-height: 4.2
+mu <- 0.08; r <- 0.02; sigma <- 0.20
+g <- function(f) r + f * (mu - r) - 0.5 * f^2 * sigma^2
+fstar <- (mu - r) / sigma^2
+
+df <- data.frame(f = seq(0, 3.2, length.out = 400))
+df$g <- g(df$f)
+pts <- data.frame(f = c(fstar, fstar / 2), farbe = pal[c(1, 2)],
+                  name = c("Kelly", "halb Kelly"))
+pts$g <- g(pts$f)
+pts$text <- paste0(pts$name, ": f = ", de(pts$f), "\ng = ", de(100 * pts$g), " %")
+
+ggplot(df, aes(f, g)) +
+  geom_hline(yintercept = r, colour = MUTED, linetype = "dashed") +
+  annotate("text", x = 2, y = r - 0.002, vjust = 1, colour = MUTED, label = "nur Zins r") +
+  geom_line(colour = pal[1], linewidth = 1) +
+  geom_point(data = pts, aes(fill = farbe), shape = 21, size = 3.5,
+             stroke = 1.5, colour = "white") +
+  scale_fill_identity() +
+  geom_text(data = pts, aes(label = text), colour = INK, size = 3.5,
+            hjust = c(0.5, 0), vjust = 1, nudge_x = c(0, 0.08), nudge_y = c(-0.003, -0.002)) +
+  scale_x_continuous(labels = function(v) de(v, 1)) +
+  scale_y_continuous(labels = function(v) paste(de(100 * v, 1), "%")) +
+  labs(x = "Aktienanteil f", y = "Wachstumsrate g(f) p.a.")
+```
+
+In der Praxis ist $f^* = (\mu - r)/\sigma^2$ sehr empfindlich gegenüber $\mu$, das sich kaum genau
+schätzen lässt. Auch deshalb ist Halb-Kelly verbreitet.
+
+## Zusammenfassung {.unnumbered}
+
+::: {.callout-note appearance="simple"}
+## Das Wichtigste in fünf Sätzen
+1. Bei einer günstigen Wette ist das Vermögen ein Submartingal, aber $E[V_n]$ wird von wenigen extremen
+   Pfaden getragen und ist als Zielgröße ungeeignet (@lem-submartingal).
+2. Auf fast jedem Pfad gilt $V_n(f) \approx V_0\, e^{n G(f)}$ mit $G(f) = E[\log(1 + fR_1)]$ (@thm-wachstum).
+3. $G$ wird maximal bei $f^* = \eta / a$, Edge geteilt durch Quote (@thm-kelly).
+4. Für jede Strategie ist $V_n / V^*_n$ ein nichtnegatives Martingal; daher schlägt keine Strategie
+   Kelly um mehr als einen endlichen Faktor (@thm-optimal).
+5. Das Vermögen ist eine Likelihood: Kelly-Wetten ist ML-Schätzung, und der Wachstumsverlust durch ein
+   falsches Modell $q$ ist genau $D(p\,\Vert\,q)$ (@thm-pferderennen).
+:::
+
+## Übungsaufgaben
+
+1. Eine Wette zahlt bei Gewinn das Dreifache des Einsatzes netto ($a = 3$), die Gewinnwahrscheinlichkeit ist $p = 0{,}3$. Berechne $f^*$ und $G(f^*)$.
+2. Zeige mit der Rechnung aus @lem-submartingal: Für $f = 1$ gilt $E[V_n] = V_0 (p(1+a))^n$, aber $V_n \to 0$ $P$-f.s.
+3. Ein Spieler kennt $p$ nicht genau und benutzt $\hat p = p + \varepsilon$, also $\hat f = \hat p - (1 - \hat p)/a$. Um wie viel sinkt die Wachstumsrate in der quadratischen Näherung?
+4. Zeige, dass in @thm-optimal (b) für konstantes $f \ne f^*$ der Limes $Q_\infty = 0$ ist, und folgere, dass $(Q_n)_n$ nicht gleichgradig integrierbar ist.
+5. Zeige mit Lagrange-Multiplikatoren, dass $b \mapsto \sum_i p_i \log b_i$ auf der Menge der Zähldichten genau bei $b = p$ maximal ist.
+6. Im Pferderennen mit fairen Quoten $o_i = 1/r_i$: Für welche Strategie bleibt das Vermögen konstant? Was ändert sich, wenn der Buchmacher eine Marge nimmt, also $\sum_i 1/o_i > 1$?
+
+::: {.callout-tip collapse="true"}
+## Lösungshinweise
+1. $f^* = 0{,}3 - 0{,}7/3 = 1/15 \approx 0{,}067$ und $G(f^*) = 0{,}3\log(1{,}2) + 0{,}7\log(14/15) \approx 0{,}0064$.
+2. Für $f = 1$ ist $1 + R_n = (1 + a)X_n$, also $V_n = V_0 (1+a)^n \prod_{k \le n} X_k$ und $E[V_n] = V_0 (1+a)^n p^n$. Andererseits ist $P(V_n > 0) = p^n \to 0$, und $V_n = 0$ impliziert $V_m = 0$ für alle $m \ge n$.
+3. Der Fehler im Einsatz ist $\Delta f = \varepsilon(1 + 1/a)$. Für die Parabel gilt $G(f^*) - G(f^* + \Delta f) \approx \tfrac12 E[R_1^2]\,(\Delta f)^2$: Der Verlust ist quadratisch im Schätzfehler, Unterwetten (z. B. Halb-Kelly) dämpft ihn.
+4. $\frac1n \log Q_n \to G(f) - G(f^*) < 0$ $P$-f.s. nach @thm-wachstum, also $Q_n \to 0$. Wäre $(Q_n)$ gleichgradig integrierbar, so folgte $L^1$-Konvergenz und $E[Q_\infty] = \lim E[Q_n] = 1$, Widerspruch.
+5. Stationäre Punkte von $\sum_i p_i \log b_i - \lambda(\sum_i b_i - 1)$ erfüllen $p_i / b_i = \lambda$, also $b_i = p_i / \lambda$ und wegen $\sum_i b_i = 1$ ist $\lambda = 1$. Strenge Konkavität liefert ein globales Maximum.
+6. Für $b = r$ ist $b_{X_k} o_{X_k} = 1$ in jedem Rennen. Mit Marge setze $s := \sum_i 1/o_i > 1$ und $r_i := 1/(s\,o_i)$. Dann ist $W(b) = D(p\,\|\,r) - D(p\,\|\,b) - \log s$: Der Wissensvorsprung $D(p\,\|\,r)$ muss größer sein als die Marge $\log s$.
+:::
+
+## Literatur
+
+- J. L. Kelly Jr. (1956): *A New Interpretation of Information Rate.* Bell System Technical Journal 35(4), 917–926.
+- L. Breiman (1961): *Optimal Gambling Systems for Favorable Games.* Proc. 4th Berkeley Symposium, 65–78.
+- T. M. Cover, J. A. Thomas (2006): *Elements of Information Theory*, 2. Aufl., Kap. 6 (Gambling and Data Compression). Wiley.
+- E. O. Thorp (2006): *The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market.* Handbook of Asset and Liability Management.
+- L. C. MacLean, E. O. Thorp, W. T. Ziemba (Hrsg.) (2011): *The Kelly Capital Growth Investment Criterion.* World Scientific.

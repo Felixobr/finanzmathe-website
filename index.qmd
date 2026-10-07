@@ -1,0 +1,42 @@
+---
+title: "Finanzmathe & Stochastik"
+subtitle: "Themen aus der Finanzmathematik, hergeleitet mit Wahrscheinlichkeitstheorie"
+toc: false
+number-sections: false
+---
+
+Hier sammle ich Themen aus der Finanzmathematik. Jedes Thema ist so aufgebaut wie ein Vorlesungsskript:
+erst das Modell, dann Definitionen, Sätze und Beweise, und nach jedem wichtigen Schritt eine
+kurze Erklärung in Worten. Simulationen in R machen die Aussagen sichtbar; der Code steht
+eingeklappt unter jeder Abbildung.
+
+Vorausgesetzt wird der Stoff aus Stochastik und Wahrscheinlichkeitstheorie: bedingte Erwartung,
+Martingale und das starke Gesetz der großen Zahlen. Die Schreibweisen stehen auf der Seite
+[Notation](notation.qmd).
+
+## Themen
+
+::: {.themen-grid}
+
+::: {.themen-karte}
+### [Brownsche Bewegung](themen/brownsche-bewegung.qmd)
+
+Von der einfachen Irrfahrt zum Zufall in stetiger Zeit: Grenzwert über den ZGS, Konstruktion
+nach Lévy, Martingale und Ruinproblem, quadratische Variation, geometrische Brownsche Bewegung.
+:::
+
+::: {.themen-karte}
+### [Kelly-Kriterium](themen/kelly.qmd)
+
+Welchen Anteil seines Vermögens soll man bei einer günstigen Wette setzen?
+Wachstumsrate, Submartingale, Optimalität über Martingalkonvergenz, und der Zusammenhang
+mit Maximum Likelihood und KL-Divergenz.
+:::
+
+::: {.themen-karte .geplant}
+### Weitere Themen
+
+In Arbeit.
+:::
+
+:::

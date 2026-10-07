@@ -1,0 +1,53 @@
+project:
+  type: website
+  output-dir: _site
+
+lang: de
+
+website:
+  title: "Finanzmathe & Stochastik"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Start
+      - text: Themen
+        menu:
+          - href: themen/brownsche-bewegung.qmd
+            text: Brownsche Bewegung
+          - href: themen/kelly.qmd
+            text: Kelly-Kriterium
+      - href: notation.qmd
+        text: Notation
+  page-footer:
+    center: "Finanzmathematik mit Wahrscheinlichkeitstheorie"
+
+format:
+  html:
+    theme:
+      light: [cosmo, styles.scss]
+      dark: [darkly, styles.scss]
+    toc: true
+    toc-title: Inhalt
+    number-sections: true
+    code-fold: true
+    code-summary: "Code anzeigen"
+    html-math-method: katex
+    smooth-scroll: true
+    fig-align: center
+
+crossref:
+  thm-title: Satz
+  thm-prefix: Satz
+  def-title: Definition
+  def-prefix: Definition
+  lem-title: Lemma
+  lem-prefix: Lemma
+  exm-title: Beispiel
+  exm-prefix: Beispiel
+  cor-title: Korollar
+  cor-prefix: Korollar
+  eq-prefix: Gleichung
+  sec-prefix: Abschnitt
+
+execute:
+  freeze: auto

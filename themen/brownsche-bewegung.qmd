@@ -1,0 +1,1088 @@
+---
+title: "Die Brownsche Bewegung"
+subtitle: "Von der einfachen Irrfahrt zum Zufall in stetiger Zeit"
+description: "Einführung der Brownschen Bewegung aus der einfachen Irrfahrt mit dem zentralen Grenzwertsatz; Definition, Konstruktion nach Lévy, Invarianzen, Martingale, Ruinproblem, quadratische Variation, Wachstum und geometrische Brownsche Bewegung."
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+set.seed(1827)
+
+# Farben (feste Reihenfolge, wie auf der Kelly-Seite)
+pal   <- c("#2a78d6", "#eb6834", "#1baf7a", "#eda100")
+INK   <- "#0b0b0b"
+MUTED <- "#52514e"
+
+theme_set(
+  theme_minimal(base_size = 11) +
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_line(colour = "#e4e3df"),
+          axis.line = element_line(colour = MUTED),
+          axis.text = element_text(colour = MUTED),
+          strip.text = element_text(colour = INK, hjust = 0),
+          legend.position = "top",
+          legend.justification = "left",
+          legend.title = element_blank())
+)
+
+# Zahl mit deutschem Dezimalkomma
+de <- function(x, digits = 2) formatC(x, format = "f", digits = digits, decimal.mark = ",")
+
+# Brownsche Bewegung auf dem Gitter 0, h, 2h, ..., n h (siehe Beispiel "Simulation")
+bb <- function(n, h) c(0, cumsum(sqrt(h) * rnorm(n)))
+```
+
+::: {.callout-note appearance="simple"}
+## Worum es geht
+
+Die Brownsche Bewegung ist der Grundbaustein fast aller Modelle der Finanzmathematik in stetiger Zeit.
+Auf dieser Seite entsteht sie Schritt für Schritt aus Dingen, die in den Vorlesungen vorkommen:
+
+1. Wir starten mit der **einfachen Irrfahrt** aus dem W-Theorie-Skript und zoomen heraus (@sec-irrfahrt).
+2. Der **zentrale Grenzwertsatz** sagt, welche Eigenschaften im Grenzwert übrig bleiben (@sec-grenzwert).
+   Genau diese Eigenschaften werden zur **Definition** (@sec-definition).
+3. Wir **konstruieren** eine Brownsche Bewegung mit Normalverteilungen und Borel-Cantelli (@sec-existenz).
+4. Wir übertragen die **Martingale der Irrfahrt** ($X_n$, $X_n^2 - n$, exponentielles Martingal) und
+   lösen das **Ruinproblem** in stetiger Zeit (@sec-martingale).
+5. Wir untersuchen die **Pfade**: rau, ohne endliche Länge, aber mit quadratischer Variation $t$
+   (@sec-pfade).
+6. Die **geometrische Brownsche Bewegung** zeigt in stetiger Zeit dieselbe Lektion wie das
+   Kelly-Kriterium (@sec-gbm).
+
+**Vorkenntnisse:** Normalverteilung, Faltung, Satz 5.28, Lemma 8.6, Borel-Cantelli (Lemma 6.9),
+starkes Gesetz der großen Zahlen (Satz 6.7) und zentraler Grenzwertsatz (Satz 6.14) aus dem
+Stochastik-Skript; bedingte Erwartung, Martingale, Optional Stopping, Doob-Ungleichung und die
+einfache Irrfahrt aus dem W-Theorie-Skript. Schreibweisen: [Notation](../notation.qmd).
+:::
+
+::: {.callout-warning appearance="simple"}
+## Was über die Skripte hinausgeht
+Zwei Dinge sind neu und werden hier eigens eingeführt: **stochastische Prozesse in stetiger Zeit**
+(Indexmenge $[0,\infty)$ statt $\mathbb N_0$, @def-prozess) sowie **Martingale und Stoppzeiten in stetiger
+Zeit** (@def-martingal-stetig, @lem-optional). Beide Begriffe sind wörtlich die aus dem W-Theorie-Skript,
+nur mit $t \in [0, \infty)$ statt $n \in \mathbb N_0$. Alles andere beweisen wir mit Werkzeugen aus den Skripten. Wo ein Satz ohne
+vollständigen Beweis bleibt, steht das ausdrücklich dabei.
+:::
+
+## Motivation: die Irrfahrt von weitem {#sec-irrfahrt}
+
+Robert Brown sah 1827 unter dem Mikroskop Pollenkörner im Wasser zittern. Einstein (1905) erklärte das
+mit sehr vielen, sehr kleinen Stößen von Wassermolekülen. Louis Bachelier (1900) hatte dieselbe
+Mathematik schon für Börsenkurse benutzt: Viele kleine, unabhängige Kursbewegungen summieren sich.
+Das einfachste Modell dafür kennen wir aus dem W-Theorie-Skript.
+
+::: {#def-irrfahrt}
+## Einfache Irrfahrt
+Seien $Z_1, Z_2, \dots$ u.i.v. auf $(\Omega, \mathcal A, P)$ mit $P(Z_k = 1) = P(Z_k = -1) = \tfrac12$.
+Die **einfache Irrfahrt** ist
+$$
+X_0 := 0, \qquad X_n := Z_1 + \dots + Z_n \quad (n \in \mathbb N),
+$$
+mit Filtration $\mathcal F_n := \sigma(Z_1, \dots, Z_n)$.
+:::
+
+Aus dem W-Theorie-Skript wissen wir:
+
+- $E[Z_k] = 0$ und $\mathrm{Var}(Z_k) = 1$, also $E[X_n] = 0$ und $\mathrm{Var}(X_n) = n$.
+- $(X_n)$ und $(X_n^2 - n)$ sind Martingale.
+- Für $T_{a,b} := \inf\{n \ge 0 : X_n \in \{-a, b\}\}$ mit $a, b \in \mathbb N$ gilt mit Optional Stopping
+  $P(X_{T_{a,b}} = -a) = \frac{b}{a+b}$, und für $T = \inf\{n : |X_n| \ge a\}$ ist $E[T] = a^2$.
+- $e^{\lambda n + \theta X_n}$ ist ein Martingal, wenn $\cosh\theta = e^{-\lambda}$.
+
+Wir wollen die Irrfahrt über sehr lange Zeiträume von weitem betrachten. Dazu stauchen wir die Zeit
+um den Faktor $n$: Ein Zeitschritt dauert jetzt $1/n$. Die Werte müssen wir auch stauchen, und zwar
+um $\sqrt n$, denn $\mathrm{Var}(X_n) = n$: Nach $n$ Schritten ist die Irrfahrt typischerweise
+$\sqrt n$ weit gekommen, nicht $n$.
+
+::: {#def-skaliert}
+## Reskalierte Irrfahrt
+Für $n \in \mathbb N$ und $t \ge 0$ sei
+$$
+W^{(n)}_t := \frac{1}{\sqrt n}\, X_{\lfloor nt \rfloor} .
+$$
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+$W^{(n)}$ macht in jedem Zeitintervall der Länge $1/n$ einen Schritt der Größe $\pm 1/\sqrt n$.
+Die Wahl $\sqrt n$ ist die einzige, bei der etwas Interessantes übrig bleibt:
+$\mathrm{Var}(W^{(n)}_1) = \mathrm{Var}(X_n)/n = 1$ für alle $n$. Würde man durch $n$ teilen, ginge
+$W^{(n)}_1 \to 0$ (das ist das Gesetz der großen Zahlen); würde man gar nicht teilen, explodierte die
+Varianz.
+:::
+
+```{r}
+#| label: fig-skalierung
+#| fig-cap: "Reskalierte Irrfahrt $W^{(n)}$ auf $[0, 1]$ für wachsendes $n$. Für kleine $n$ sieht man die einzelnen Schritte, für große $n$ entsteht eine raue, stetig wirkende Kurve."
+#| fig-width: 7.5
+#| fig-height: 5
+label_n <- function(n) paste("n =", formatC(n, format = "d", big.mark = ".", decimal.mark = ","))
+skaliert <- function(n) {
+  Z <- sample(c(-1, 1), n, replace = TRUE)
+  data.frame(t = (0:n) / n, W = c(0, cumsum(Z)) / sqrt(n), n = label_n(n))
+}
+ns <- c(10, 100, 1000, 100000)
+df <- do.call(rbind, lapply(ns, skaliert))
+df$n <- factor(df$n, levels = label_n(ns))
+
+ggplot(df, aes(t, W)) +
+  geom_hline(yintercept = 0, colour = MUTED, linewidth = 0.3) +
+  geom_step(colour = pal[1], linewidth = 0.4) +
+  facet_wrap(~ n, ncol = 2) +
+  scale_x_continuous(breaks = seq(0, 1, by = 0.25), labels = function(v) de(v, 2)) +
+  scale_y_continuous(labels = function(v) de(v, 1)) +
+  labs(x = "Zeit t", y = expression(W[t]^{(n)}))
+```
+
+Die Bilder legen nahe, dass $W^{(n)}$ gegen „irgendetwas“ konvergiert. Was dieses Etwas ist und welche
+Eigenschaften es hat, sagt uns der zentrale Grenzwertsatz.
+
+## Was im Grenzwert übrig bleibt {#sec-grenzwert}
+
+::: {#thm-grenzwert}
+## Zuwächse der reskalierten Irrfahrt
+Seien $0 = t_0 < t_1 < \dots < t_k$. Dann gilt:
+
+a. Für jedes $n$ sind die Zuwächse $W^{(n)}_{t_1} - W^{(n)}_{t_0}, \dots, W^{(n)}_{t_k} - W^{(n)}_{t_{k-1}}$
+   unabhängig.
+b. Für jedes $j \in [k]$ gilt $W^{(n)}_{t_j} - W^{(n)}_{t_{j-1}} \xrightarrow{d} N(0, t_j - t_{j-1})$.
+c. Gemeinsam: Für alle $x_1, \dots, x_k \in \mathbb R$ gilt
+   $$
+   \lim_{n \to \infty} P\Bigl(W^{(n)}_{t_j} - W^{(n)}_{t_{j-1}} \le x_j \ \text{für alle } j \in [k]\Bigr)
+   = \prod_{j=1}^k \Phi\Bigl(\frac{x_j}{\sqrt{t_j - t_{j-1}}}\Bigr),
+   $$
+   wobei $\Phi$ die Verteilungsfunktion von $N(0,1)$ ist.
+:::
+
+::: {.proof}
+(a) Mit $m_j := \lfloor n t_j \rfloor$ ist
+$W^{(n)}_{t_j} - W^{(n)}_{t_{j-1}} = \frac{1}{\sqrt n}\sum_{i = m_{j-1}+1}^{m_j} Z_i$
+eine Funktion der Schritte im Block $\{m_{j-1}+1, \dots, m_j\}$. Diese Blöcke sind disjunkt, nach dem
+Blockungslemma (Stochastik-Skript, Satz 5.23) sind die Zuwächse unabhängig.
+
+(b) Sei $s := t_j - t_{j-1}$ und $\ell_n := m_j - m_{j-1}$ die Zahl der Schritte im Block. Es gilt
+$\ell_n \to \infty$ und $\ell_n / n \to s$, denn $|\ell_n - ns| \le 1$. Der Zuwachs hat dieselbe
+Verteilung wie $\frac{1}{\sqrt n} X_{\ell_n} = c_n Y_n$ mit
+$$
+Y_n := \frac{X_{\ell_n}}{\sqrt{\ell_n}} \xrightarrow{d} N(0,1)
+\quad \text{(ZGS, Satz 6.14, mit } \mu = 0,\ \sigma^2 = 1), \qquad
+c_n := \sqrt{\ell_n / n} \to \sqrt s .
+$$
+Sei $x \in \mathbb R$ und $\varepsilon > 0$. Für große $n$ liegt $x / c_n$ zwischen
+$x/\sqrt s - \varepsilon$ und $x/\sqrt s + \varepsilon$, also
+$$
+P\bigl(Y_n \le \tfrac{x}{\sqrt s} - \varepsilon\bigr) \le P(c_n Y_n \le x) \le P\bigl(Y_n \le \tfrac{x}{\sqrt s} + \varepsilon\bigr).
+$$
+Für $n \to \infty$ konvergieren die Schranken gegen $\Phi(x/\sqrt s \mp \varepsilon)$, mit
+$\varepsilon \downarrow 0$ und der Stetigkeit von $\Phi$ folgt $P(c_n Y_n \le x) \to \Phi(x/\sqrt s)$.
+Das ist die Verteilungsfunktion von $N(0, s)$.
+
+(c) Wegen (a) zerfällt die Wahrscheinlichkeit links in ein Produkt, und jeder Faktor konvergiert nach (b).
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Von der Irrfahrt bleiben im Grenzwert genau drei Eigenschaften übrig:
+
+1. Zuwächse über disjunkte Zeitintervalle sind **unabhängig** (das gilt schon für jedes $n$).
+2. Ein Zuwachs über ein Intervall der Länge $s$ ist **normalverteilt mit Varianz $s$** (das macht der ZGS).
+3. Der Start ist $0$.
+
+Bemerkenswert ist, was *nicht* übrig bleibt: dass die Schritte $\pm 1$ waren. Hätten wir mit beliebigen
+u.i.v. Schritten mit Erwartungswert $0$ und Varianz $1$ angefangen, wäre derselbe Grenzwert
+herausgekommen. Die Brownsche Bewegung ist **universell**, genauso wie die Normalverteilung im ZGS.
+Deshalb ist sie das natürliche Modell für „Summe sehr vieler kleiner, unabhängiger Einflüsse“.
+:::
+
+```{r}
+#| label: fig-zgs
+#| fig-cap: "Verteilung von $W^{(100)}_1 = X_{100}/10$ aus 20.000 Simulationen (Balken) und die Dichte von $N(0,1)$ (Linie). Die Werte von $W^{(100)}_1$ liegen auf dem Gitter $\\{-10; -9{,}8; \\dots; 10\\}$, darum die Balkenbreite $0{,}2$."
+#| fig-width: 7.5
+#| fig-height: 3.8
+n <- 100
+X_n <- 2 * rbinom(20000, n, 0.5) - n   # X_n = 2 * (#Schritte nach oben) - n
+df <- data.frame(W = X_n / sqrt(n))
+dichte <- data.frame(x = seq(-4, 4, length.out = 300))
+dichte$y <- dnorm(dichte$x)
+
+ggplot(df, aes(W)) +
+  geom_histogram(aes(y = after_stat(density)), binwidth = 0.2, center = 0,
+                 fill = pal[1], alpha = 0.35, colour = "white") +
+  geom_line(data = dichte, aes(x, y), colour = pal[2], linewidth = 1) +
+  coord_cartesian(xlim = c(-4, 4)) +
+  scale_x_continuous(labels = function(v) de(v, 0)) +
+  scale_y_continuous(labels = function(v) de(v, 1)) +
+  labs(x = expression(W[1]^{(100)}), y = "Dichte")
+```
+
+## Definition {#sec-definition}
+
+Der Grenzwert ist kein Objekt mit Index $n \in \mathbb N_0$ mehr, sondern hat zu *jedem* reellen
+Zeitpunkt $t \ge 0$ einen Wert. Dafür brauchen wir einen neuen Begriff.
+
+::: {#def-prozess}
+## Stochastischer Prozess in stetiger Zeit (neu)
+Ein **stochastischer Prozess in stetiger Zeit** ist eine Familie $B = (B_t)_{t \ge 0}$ von
+reellwertigen Zufallsvariablen auf einem W-Raum $(\Omega, \mathcal A, P)$. Für festes $\omega \in \Omega$
+heißt die Funktion $t \mapsto B_t(\omega)$ **Pfad** von $B$. Der Prozess heißt **stetig**, wenn alle
+Pfade stetig sind.
+:::
+
+Man kann $B$ also auf zwei Arten lesen: als unendlich viele Zufallsvariablen $B_t$, oder als eine
+*zufällige Funktion* $\omega \mapsto (t \mapsto B_t(\omega))$. Beide Sichtweisen werden wir brauchen.
+
+::: {#def-bb}
+## Brownsche Bewegung
+Ein stochastischer Prozess $B = (B_t)_{t \ge 0}$ heißt **(Standard-)Brownsche Bewegung**, wenn gilt:
+
+a. $B_0 = 0$.
+b. **Unabhängige Zuwächse:** Für alle $0 = t_0 < t_1 < \dots < t_k$ sind
+   $B_{t_1} - B_{t_0}, \dots, B_{t_k} - B_{t_{k-1}}$ unabhängig.
+c. **Normalverteilte Zuwächse:** Für $0 \le s < t$ ist $\mathcal L_P(B_t - B_s) = N(0, t - s)$.
+d. **Stetige Pfade:** Für jedes $\omega \in \Omega$ ist $t \mapsto B_t(\omega)$ stetig.
+
+Man nennt die Brownsche Bewegung auch **Wiener-Prozess**.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+(a), (b), (c) sind genau die drei Eigenschaften aus @thm-grenzwert. Bedingung (d) ist neu, aber
+naheliegend: Die Schritte von $W^{(n)}$ haben Größe $1/\sqrt n \to 0$, Sprünge verschwinden im
+Grenzwert. Wichtig ist (d) trotzdem, denn ohne sie wären Fragen wie „Wann verlässt der Prozess
+zum ersten Mal das Intervall $(-a, b)$?“ gar nicht sinnvoll: Dafür muss man den Prozess an
+überabzählbar vielen Zeitpunkten zugleich kontrollieren.
+
+Eine Faustregel: Die Brownsche Bewegung ist eine **Irrfahrt mit unendlich vielen, unendlich kleinen
+Schritten**. Fast jede Aussage über die Irrfahrt aus dem W-Theorie-Skript hat ein Gegenstück für $B$.
+:::
+
+Aus der Definition folgt sofort, wie die Werte zu verschiedenen Zeiten zusammenhängen.
+
+::: {#lem-kovarianz}
+## Verteilung und Kovarianz
+Sei $B$ eine Brownsche Bewegung. Dann gilt:
+
+a. $\mathcal L_P(B_t) = N(0, t)$, also $E[B_t] = 0$ und $\mathrm{Var}(B_t) = t$.
+b. $\mathrm{Cov}(B_s, B_t) = E[B_s B_t] = \min(s, t)$ für alle $s, t \ge 0$.
+c. Für $0 = t_0 < t_1 < \dots < t_k$ ist die gemeinsame Verteilung von $(B_{t_1}, \dots, B_{t_k})$ durch
+   (a)–(c) aus @def-bb eindeutig festgelegt: Es ist $B_{t_j} = \sum_{i=1}^j (B_{t_i} - B_{t_{i-1}})$,
+   und der Vektor der Zuwächse hat nach Satz 5.28 die Dichte
+   $$
+   \rho(y_1, \dots, y_k) = \prod_{j=1}^k \frac{1}{\sqrt{2\pi (t_j - t_{j-1})}}
+   \exp\Bigl(-\frac{y_j^2}{2(t_j - t_{j-1})}\Bigr) .
+   $$
+:::
+
+::: {.proof}
+(a) ist (c) aus @def-bb mit $s = 0$, denn $B_0 = 0$. (b) Sei $s \le t$. Da $B_s = B_s - B_0$ und
+$B_t - B_s$ unabhängig sind, gilt $E[B_s (B_t - B_s)] = E[B_s]\,E[B_t - B_s] = 0$ (Produktformel,
+Stochastik-Skript, Satz 4.6), also
+$E[B_s B_t] = E[B_s(B_t - B_s)] + E[B_s^2] = 0 + s$. (c) ist Satz 5.28 zusammen mit (b) und (c) aus
+@def-bb.
+:::
+
+::: {#exm-simulation}
+## Simulation
+@lem-kovarianz (c) sagt uns, wie man eine Brownsche Bewegung auf dem Gitter $0, h, 2h, \dots$ **exakt**
+simuliert: Man zieht u.i.v. $\xi_1, \xi_2, \dots \sim N(0,1)$ und setzt
+$$
+B_{kh} := \sqrt h\,(\xi_1 + \dots + \xi_k) .
+$$
+Die Zuwächse $\sqrt h\, \xi_k$ sind dann unabhängig und $N(0, h)$-verteilt, wie verlangt. In R ist das
+eine Zeile: `c(0, cumsum(sqrt(h) * rnorm(n)))`. Alle folgenden Bilder benutzen diese Funktion
+(sie heißt im Code `bb(n, h)`). Zwischen den Gitterpunkten zeichnet R gerade Linien; das ist eine
+Näherung, die bei kleinem $h$ unsichtbar wird.
+:::
+
+::: {#exm-viertel}
+## Zweimal positiv
+Wie groß ist $P(B_1 > 0,\ B_2 > 0)$? Für die Irrfahrt müsste man Pfade zählen; hier hilft Geometrie.
+Mit $\xi_1 := B_1$ und $\xi_2 := B_2 - B_1$ sind $\xi_1, \xi_2$ u.i.v. $N(0,1)$, und gesucht ist
+$P(\xi_1 > 0,\ \xi_1 + \xi_2 > 0)$. Die Dichte von $(\xi_1, \xi_2)$ ist
+$\frac{1}{2\pi}e^{-(z_1^2 + z_2^2)/2}$, sie hängt nur vom Abstand zum Ursprung ab und ist daher
+**drehinvariant** (das ist genau der Inhalt von Lemma 8.6 im Stochastik-Skript). Die Menge
+$\{z_1 > 0,\ z_1 + z_2 > 0\}$ ist ein Winkelsektor mit Öffnungswinkel $\frac\pi2 + \frac\pi4 = \frac{3\pi}{4}$.
+Also
+$$
+P(B_1 > 0,\ B_2 > 0) = \frac{3\pi/4}{2\pi} = \frac38 .
+$$
+Zum Vergleich: Wären $B_1$ und $B_2$ unabhängig, käme $\frac14$ heraus. Die positive Korrelation
+$\mathrm{Corr}(B_1, B_2) = 1/\sqrt 2$ aus @lem-kovarianz macht „zweimal positiv“ wahrscheinlicher.
+:::
+
+```{r}
+#| label: viertel
+xi1 <- rnorm(1e6); xi2 <- rnorm(1e6)
+p_sim <- mean(xi1 > 0 & xi1 + xi2 > 0)
+```
+
+Eine Simulation mit $10^6$ Paaren ergibt $`r de(p_sim, 4)`$, die exakte Antwort ist $0{,}375$.
+
+## Existenz: die Konstruktion von Lévy {#sec-existenz}
+
+Bisher haben wir nur aufgeschrieben, was wir *wollen*. Dass es einen Prozess mit allen vier
+Eigenschaften gibt, ist nicht selbstverständlich: Bedingung (d) verlangt etwas über überabzählbar viele
+Zeitpunkte zugleich. Norbert Wiener hat die Existenz 1923 bewiesen. Wir folgen der eleganten
+Konstruktion von Paul Lévy, die nur Normalverteilungen und Borel-Cantelli braucht.
+
+**Idee.** Wir legen zuerst $B_1$ fest, dann $B_{1/2}$, dann $B_{1/4}$ und $B_{3/4}$, und so weiter: in jedem
+Schritt die Mittelpunkte zwischen den schon bekannten Punkten. Die Frage ist nur: Wie muss ein
+neuer Mittelpunkt verteilt sein, damit die Zuwächse unabhängig und richtig normalverteilt bleiben?
+
+::: {#lem-mittelpunkt}
+## Mittelpunkt
+Seien $\Delta \sim N(0, h)$ und $\xi \sim N(0, 1)$ unabhängig, $h > 0$. Setze
+$$
+U := \frac{\Delta}{2} + \frac{\sqrt h}{2}\,\xi, \qquad V := \frac{\Delta}{2} - \frac{\sqrt h}{2}\,\xi .
+$$
+Dann sind $U$ und $V$ unabhängig mit $\mathcal L_P(U) = \mathcal L_P(V) = N(0, h/2)$, und $U + V = \Delta$.
+:::
+
+::: {.proof}
+$\eta_1 := \Delta/\sqrt h$ und $\eta_2 := \xi$ sind u.i.v. $N(0,1)$. Es gilt
+$$
+\begin{pmatrix} U \\ V \end{pmatrix} = \sqrt{\frac h2}\; O \begin{pmatrix} \eta_1 \\ \eta_2 \end{pmatrix},
+\qquad O := \frac{1}{\sqrt 2}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix} .
+$$
+$O$ ist orthogonal. Nach Lemma 8.6 (Stochastik-Skript) sind die Komponenten von $O(\eta_1, \eta_2)^\top$
+wieder u.i.v. $N(0,1)$. Multiplikation mit $\sqrt{h/2}$ ergibt die Behauptung.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Kennt man $B_s$ und $B_t$ und will den Mittelpunkt $B_m$, $m = \frac{s+t}{2}$, einfügen, so setzt man
+$$
+B_m := \frac{B_s + B_t}{2} + \frac{\sqrt{t-s}}{2}\,\xi
+$$
+mit einem frischen, unabhängigen $\xi \sim N(0,1)$: also die **lineare Interpolation plus ein
+Zufallsknick** der Standardabweichung $\frac12\sqrt{t-s}$. Mit $\Delta = B_t - B_s$ und $h = t - s$ sind dann
+$B_m - B_s = U$ und $B_t - B_m = V$ wie in @lem-mittelpunkt: zwei unabhängige Zuwächse mit Varianz
+$h/2$. Genau so muss es sein.
+:::
+
+**Konstruktion.** Sei $\mathcal D_n := \{k 2^{-n} : k = 0, \dots, 2^n\}$ die Menge der dyadischen Punkte
+der Stufe $n$ in $[0,1]$ und $\mathcal D := \bigcup_n \mathcal D_n$. Die Menge $\mathcal D$ ist abzählbar;
+seien $(\xi_d)_{d \in \mathcal D}$ u.i.v. $N(0,1)$. Wir setzen
+
+- Stufe 0: $B_0 := 0$, $B_1 := \xi_1$.
+- Stufe $n+1$: Für $d \in \mathcal D_{n+1} \setminus \mathcal D_n$ mit Nachbarn $d^\pm := d \pm 2^{-(n+1)} \in \mathcal D_n$
+  $$
+  B_d := \frac{B_{d^-} + B_{d^+}}{2} + 2^{-(n+2)/2}\, \xi_d .
+  $$
+- $B^{(n)}$ sei die stückweise lineare Funktion auf $[0,1]$ mit $B^{(n)}_d = B_d$ für $d \in \mathcal D_n$.
+
+Die Standardabweichung $2^{-(n+2)/2} = \frac12 \sqrt{2^{-n}}$ ist genau die aus der Erklärung oben,
+denn benachbarte Punkte der Stufe $n$ haben Abstand $2^{-n}$.
+
+```{r}
+#| label: fig-levy
+#| fig-cap: "Lévy-Konstruktion: die Stufen $B^{(1)}$, $B^{(2)}$, $B^{(4)}$ und $B^{(7)}$ (blau) eines Pfades, jeweils vor dem Grenzpfad (Stufe 14, grau). Jede Stufe behält alle alten Punkte und fügt in der Mitte zufällige Knicke ein, die mit jeder Stufe um den Faktor $1/\\sqrt 2$ kleiner werden."
+#| fig-width: 7.5
+#| fig-height: 5
+levy <- function(N) {
+  B <- c(0, rnorm(1))                    # Stufe 0: Werte auf D_0 = {0, 1}
+  stufen <- list(data.frame(t = c(0, 1), B = B, stufe = 0))
+  for (n in 0:(N - 1)) {
+    links  <- head(B, -1); rechts <- tail(B, -1)
+    mitte  <- (links + rechts) / 2 + 2^(-(n + 2) / 2) * rnorm(length(links))
+    neu <- numeric(2 * length(B) - 1)
+    neu[seq(1, length(neu), by = 2)] <- B       # alte Punkte bleiben
+    neu[seq(2, length(neu), by = 2)] <- mitte   # neue Mittelpunkte
+    B <- neu
+    stufen[[n + 2]] <- data.frame(t = seq(0, 1, length.out = length(B)), B = B, stufe = n + 1)
+  }
+  do.call(rbind, stufen)
+}
+L <- levy(14)
+zeige <- c(1, 2, 4, 7)
+grenz <- subset(L, stufe == 14)
+df <- subset(L, stufe %in% zeige)
+df$panel <- factor(paste("Stufe", df$stufe), levels = paste("Stufe", zeige))
+hinter <- do.call(rbind, lapply(levels(df$panel), function(p) cbind(grenz, panel = p)))
+hinter$panel <- factor(hinter$panel, levels = levels(df$panel))
+
+ggplot(df, aes(t, B)) +
+  geom_line(data = hinter, colour = "grey70", linewidth = 0.3) +
+  geom_line(colour = pal[1], linewidth = 0.8) +
+  geom_point(colour = pal[1], size = 1.2, data = subset(df, stufe <= 4)) +
+  facet_wrap(~ panel, ncol = 2) +
+  scale_x_continuous(labels = function(v) de(v, 2)) +
+  scale_y_continuous(labels = function(v) de(v, 1)) +
+  labs(x = "Zeit t", y = expression(B[t]^{(n)}))
+```
+
+Für den Konvergenzbeweis brauchen wir eine Abschätzung für große Werte der Normalverteilung.
+
+::: {#lem-tail}
+## Gauß-Schranke
+Für $\xi \sim N(0,1)$ und $x \ge 1$ gilt $P(|\xi| \ge x) \le e^{-x^2/2}$.
+:::
+
+::: {.proof}
+Für $z \ge x$ ist $z/x \ge 1$, also
+$$
+P(\xi \ge x) = \frac{1}{\sqrt{2\pi}}\int_x^\infty e^{-z^2/2}\,dz
+\le \frac{1}{\sqrt{2\pi}}\int_x^\infty \frac{z}{x}\, e^{-z^2/2}\,dz
+= \frac{1}{x\sqrt{2\pi}}\, e^{-x^2/2} .
+$$
+Mit der Symmetrie folgt $P(|\xi| \ge x) \le \frac{2}{x\sqrt{2\pi}} e^{-x^2/2} \le e^{-x^2/2}$, da
+$2/\sqrt{2\pi} < 1 \le x$.
+:::
+
+::: {#thm-existenz}
+## Wiener 1923, Konstruktion nach Lévy
+a. Für jedes $n$ sind die Zuwächse $B_d - B_{d - 2^{-n}}$, $d \in \mathcal D_n \setminus \{0\}$, u.i.v.
+   $N(0, 2^{-n})$.
+b. $P$-f.s. konvergiert $B^{(n)}$ gleichmäßig auf $[0,1]$ gegen eine stetige Funktion $B$.
+c. $(B_t)_{t \in [0,1]}$ erfüllt (a)–(d) aus @def-bb (auf $[0,1]$).
+d. Es gibt eine Brownsche Bewegung $(B_t)_{t \ge 0}$.
+:::
+
+::: {.proof}
+(a) Induktion nach $n$. Für $n = 0$ ist $B_1 - B_0 = \xi_1 \sim N(0,1)$. Gelte die Aussage für $n$.
+Die $2^n$ alten Zuwächse $\Delta_d := B_{d^+} - B_{d^-}$, $d \in \mathcal D_{n+1} \setminus \mathcal D_n$, sind nach
+Induktionsvoraussetzung u.i.v. $N(0, 2^{-n})$. Sie sind Funktionen von $(\xi_e)_{e \in \mathcal D_n}$, also
+(Blockungslemma, Satz 5.23) unabhängig von den neuen $(\xi_d)_{d \in \mathcal D_{n+1} \setminus \mathcal D_n}$.
+Insgesamt ist die Familie $(\Delta_d, \xi_d)_{d \in \mathcal D_{n+1} \setminus \mathcal D_n}$ unabhängig.
+Nach Konstruktion ist
+$$
+B_d - B_{d^-} = \frac{\Delta_d}{2} + 2^{-(n+2)/2}\xi_d, \qquad B_{d^+} - B_d = \frac{\Delta_d}{2} - 2^{-(n+2)/2}\xi_d ,
+$$
+und $2^{-(n+2)/2} = \frac12\sqrt{2^{-n}}$. Nach @lem-mittelpunkt mit $h = 2^{-n}$ sind diese beiden Zuwächse
+unabhängig und $N(0, 2^{-(n+1)})$-verteilt. Paare zu verschiedenen $d$ sind Funktionen disjunkter Blöcke
+$\{\Delta_d, \xi_d\}$ und daher unabhängig (Blockungslemma). Der Vektor aller $2^{n+1}$ neuen Zuwächse hat damit
+eine Produktdichte, nach Satz 5.28 sind sie u.i.v. $N(0, 2^{-(n+1)})$.
+
+(b) $B^{(n+1)} - B^{(n)}$ ist stückweise linear, verschwindet auf $\mathcal D_n$ und ist in
+$d \in \mathcal D_{n+1} \setminus \mathcal D_n$ gleich $2^{-(n+2)/2}\xi_d$. Also
+$$
+\sup_{t \in [0,1]} \bigl|B^{(n+1)}_t - B^{(n)}_t\bigr| = 2^{-(n+2)/2} \max_{d \in \mathcal D_{n+1} \setminus \mathcal D_n} |\xi_d| .
+$$
+Für $A_n := \{\max_d |\xi_d| \ge 2\sqrt n\}$ gilt mit $2^n$ Kandidaten $d$ und @lem-tail (für $n \ge 1$)
+$$
+P(A_n) \le 2^n\, e^{-2n} = \Bigl(\frac{2}{e^2}\Bigr)^n, \qquad \sum_n P(A_n) < \infty .
+$$
+Nach Borel-Cantelli (Lemma 6.9) gibt es $P$-f.s. ein $N(\omega)$ mit
+$\sup_t |B^{(n+1)}_t - B^{(n)}_t| \le 2\sqrt n\, 2^{-(n+2)/2}$ für alle $n \ge N(\omega)$. Diese
+Schranken sind summierbar. Also ist $(B^{(n)})$ $P$-f.s. eine Cauchy-Folge bezüglich der Supremumsnorm
+und konvergiert gleichmäßig. Als gleichmäßiger Limes stetiger Funktionen ist $B$ stetig. Auf der
+Ausnahme-Nullmenge setzen wir $B \equiv 0$. Für $d \in \mathcal D_n$ ist $B^{(m)}_d = B_d$ für alle $m \ge n$,
+der Grenzpfad geht also durch alle konstruierten Punkte.
+
+(c) (a) und (d) aus @def-bb sind klar. Seien $0 = t_0 < \dots < t_k \le 1$ und $t_j^{(m)} \in \mathcal D_m$
+dyadische Punkte mit $t_j^{(m)} \to t_j$ und $t_0^{(m)} = 0 < t_1^{(m)} < \dots < t_k^{(m)}$. Nach (a) und
+dem Blockungslemma sind die Zuwächse $\Delta^{(m)}_j := B_{t^{(m)}_j} - B_{t^{(m)}_{j-1}}$ unabhängig
+mit Verteilung $N(0, t_j^{(m)} - t_{j-1}^{(m)})$, und wegen der Stetigkeit der Pfade gilt
+$\Delta^{(m)}_j \to \Delta_j := B_{t_j} - B_{t_{j-1}}$ $P$-f.s. Für jede beschränkte stetige Funktion
+$g : \mathbb R^k \to \mathbb R$ folgt mit dominierter Konvergenz
+$$
+E\bigl[g(\Delta_1, \dots, \Delta_k)\bigr] = \lim_{m\to\infty} E\bigl[g(\Delta^{(m)}_1, \dots, \Delta^{(m)}_k)\bigr]
+= \lim_{m\to\infty} \int g(y)\, \rho_m(y)\, dy = \int g(y)\, \rho(y)\, dy,
+$$
+wobei $\rho_m$, $\rho$ die Produktdichten aus @lem-kovarianz (c) zu den Zeiten $t^{(m)}_j$ bzw. $t_j$ sind
+(auch der letzte Schritt ist dominierte Konvergenz, da $\rho_m \to \rho$ punktweise und die $\rho_m$
+gemeinsam durch eine integrierbare Funktion beschränkt sind). Da beschränkte stetige Funktionen eine
+Verteilung festlegen (man approximiere Indikatoren von Quadern), hat $(\Delta_1, \dots, \Delta_k)$ die
+Dichte $\rho$. Das sind (b) und (c) aus @def-bb.
+
+(d) Man nimmt unabhängige Kopien $B^{[0]}, B^{[1]}, \dots$ des Prozesses aus (c) auf $[0,1]$ und hängt
+sie aneinander: $B_t := \sum_{i < \lfloor t \rfloor} B^{[i]}_1 + B^{[\lfloor t \rfloor]}_{t - \lfloor t \rfloor}$.
+Die Bedingungen (a)–(d) prüft man mit den Mitteln aus (c) nach.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Der Beweis von (b) ist ein Wettlauf zwischen zwei Effekten. Von Stufe zu Stufe werden die Knicke um den
+Faktor $1/\sqrt 2$ kleiner, aber es gibt doppelt so viele davon. Entscheidend ist, dass das **Maximum** von
+$2^n$ unabhängigen Standardnormalverteilten nur sehr langsam wächst, nämlich wie $\sqrt n$ (das sagt die
+Gauß-Schranke). Weil $\sqrt n \cdot 2^{-n/2}$ summierbar ist, gewinnt das Kleinerwerden. In
+@fig-levy sieht man das: Ab Stufe 7 ist mit bloßem Auge kaum noch ein Unterschied zum Grenzpfad zu erkennen.
+
+Teil (c) ist der Grund, warum die Konstruktion überhaupt funktioniert: Die dyadischen Punkte liegen
+dicht, und wegen der Stetigkeit legen sie den ganzen Pfad fest.
+:::
+
+::: {.callout-note appearance="simple"}
+## Bemerkung
+Zwei Zutaten haben wir stillschweigend benutzt: dass es abzählbar viele u.i.v. normalverteilte
+Zufallsvariablen auf einem W-Raum gibt (das setzt auch das starke Gesetz der großen Zahlen voraus),
+und dass beschränkte stetige Funktionen eine Verteilung auf $\mathbb R^k$ festlegen. Beides ist
+Standard-Maßtheorie. Alles andere im Beweis steht in den Skripten.
+:::
+
+## Invarianzen: die Brownsche Bewegung ist selbstähnlich {#sec-invarianz}
+
+::: {#thm-invarianz}
+## Invarianzen
+Sei $B$ eine Brownsche Bewegung. Dann sind auch die folgenden Prozesse Brownsche Bewegungen:
+
+a. **Spiegelung:** $(-B_t)_{t \ge 0}$.
+b. **Skalierung:** $\bigl(\frac{1}{\sqrt c} B_{ct}\bigr)_{t \ge 0}$ für jedes $c > 0$.
+c. **Neustart:** $(B_{s+t} - B_s)_{t \ge 0}$ für jedes $s \ge 0$. Dieser Prozess ist unabhängig von
+   $(B_{r_1}, \dots, B_{r_m})$ für alle $r_1, \dots, r_m \le s$.
+:::
+
+::: {.proof}
+In allen drei Fällen sind Start in $0$ und Stetigkeit klar, und Zuwächse des neuen Prozesses über
+disjunkte Intervalle sind Zuwächse von $B$ über disjunkte Intervalle (bzw. deren Vielfache), also
+unabhängig. Es bleiben die Verteilungen: (a) $N(0, t-s)$ ist symmetrisch. (b)
+$\frac{1}{\sqrt c}(B_{ct} - B_{cs}) \sim N\bigl(0, \frac1c (ct - cs)\bigr) = N(0, t - s)$.
+(c) $(B_{s+t} - B_s) - (B_{s+u} - B_s) = B_{s+t} - B_{s+u} \sim N(0, t-u)$. Die Unabhängigkeit in (c)
+folgt aus dem Blockungslemma, denn $B_{r_i}$ ist eine Summe von Zuwächsen vor $s$, der neue Prozess
+besteht aus Zuwächsen nach $s$.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+(c) heißt: Die Brownsche Bewegung **vergisst ihre Vergangenheit**. Ab jedem festen Zeitpunkt startet
+sie von ihrem aktuellen Wert neu. (b) heißt: Ein Ausschnitt der Länge $1/c$, vertikal um $\sqrt c$
+vergrößert, sieht statistisch genauso aus wie das ganze Bild. Es gibt **keine natürliche Zeitskala**:
+Der Pfad ist ein Fraktal. Für die Finanzmathematik heißt das: Die Faustregel „Schwankung wächst wie
+$\sqrt{\text{Zeit}}$“ gilt auf jeder Zeitskala, von Minuten bis Jahrzehnten.
+:::
+
+```{r}
+#| label: fig-zoom
+#| fig-cap: "Ein Pfad auf $[0, 1]$, auf $[0, 1/16]$ und auf $[0, 1/256]$. Die Zeitachse wird jedes Mal um den Faktor 16 gestreckt, die Werteachse nur um den Faktor $\\sqrt{16} = 4$. Die drei Bilder sind statistisch nicht zu unterscheiden."
+#| fig-width: 7.5
+#| fig-height: 3
+N <- 2^18
+B <- bb(N, 1 / N)
+t <- (0:N) / N
+ausschnitt <- function(Tmax, label, duenn) {
+  idx <- which(t <= Tmax)
+  idx <- idx[seq(1, length(idx), by = duenn)]
+  data.frame(t = t[idx], B = B[idx], panel = label)
+}
+df <- rbind(ausschnitt(1, "[0, 1]", 64),
+            ausschnitt(1 / 16, "[0, 1/16]", 4),
+            ausschnitt(1 / 256, "[0, 1/256]", 1))
+df$panel <- factor(df$panel, levels = c("[0, 1]", "[0, 1/16]", "[0, 1/256]"))
+
+ggplot(df, aes(t, B)) +
+  geom_line(colour = pal[1], linewidth = 0.3) +
+  facet_wrap(~ panel, scales = "free") +
+  scale_x_continuous(labels = NULL) +
+  scale_y_continuous(labels = NULL) +
+  labs(x = "Zeit t (jeweils gestreckt)", y = expression(B[t]))
+```
+
+## Martingale und das Ruinproblem {#sec-martingale}
+
+### Martingale in stetiger Zeit
+
+::: {#def-martingal-stetig}
+## Filtration und Martingal in stetiger Zeit (neu)
+Eine **Filtration** in stetiger Zeit ist eine Familie $(\mathcal F_t)_{t \ge 0}$ von Teil-σ-Algebren
+von $\mathcal A$ mit $\mathcal F_s \subseteq \mathcal F_t$ für $s \le t$. Ein Prozess $(M_t)_{t \ge 0}$ heißt
+**Martingal**, wenn jedes $M_t$ $\mathcal F_t$-messbar und integrierbar ist und
+$$
+E[M_t \mid \mathcal F_s] = M_s \quad P\text{-f.s. für alle } 0 \le s \le t .
+$$
+Für eine Brownsche Bewegung $B$ nehmen wir stets $\mathcal F_t := \sigma(B_r : r \le t)$.
+:::
+
+Das ist wörtlich die Definition aus dem W-Theorie-Skript, nur mit $s, t \in [0, \infty)$ statt $n \in \mathbb N_0$.
+Insbesondere ist für jedes Gitter $0 \le s_0 < s_1 < \dots$ der Prozess $(M_{s_k})_{k \in \mathbb N_0}$ ein
+Martingal im Sinne des Skripts (bezüglich $(\mathcal F_{s_k})_k$). Diese Beobachtung benutzen wir, um
+Sätze aus dem Skript zu übertragen.
+
+Aus @thm-invarianz (c) folgt: $B_t - B_s$ ist **unabhängig von $\mathcal F_s$**. (Unabhängig von allen
+endlich vielen $B_{r_i}$, $r_i \le s$, ist es nach @thm-invarianz; die Ereignisse, die nur von endlich
+vielen solchen $B_{r_i}$ abhängen, bilden ein ∩-stabiles Erzeugendensystem von $\mathcal F_s$, und damit
+überträgt sich die Unabhängigkeit auf $\mathcal F_s$.) Das ist das stetige Gegenstück dazu, dass
+$Z_{n+1}$ unabhängig von $\mathcal F_n$ ist.
+
+::: {#lem-mgf}
+## Momenterzeugende Funktion der Normalverteilung
+Für $\xi \sim N(0, \sigma^2)$ und $\theta \in \mathbb R$ gilt $E[e^{\theta \xi}] = e^{\theta^2\sigma^2/2}$.
+Außerdem ist $E[\xi^4] = 3\sigma^4$.
+:::
+
+::: {.proof}
+Quadratische Ergänzung: $\theta z - \frac{z^2}{2\sigma^2} = -\frac{(z - \theta\sigma^2)^2}{2\sigma^2} + \frac{\theta^2\sigma^2}{2}$.
+Also ist
+$E[e^{\theta\xi}] = e^{\theta^2\sigma^2/2}\int \frac{1}{\sqrt{2\pi\sigma^2}} e^{-(z-\theta\sigma^2)^2/(2\sigma^2)}\,dz = e^{\theta^2\sigma^2/2}$,
+denn das Integral ist das einer $N(\theta\sigma^2, \sigma^2)$-Dichte. Für das vierte Moment vergleicht man
+die Koeffizienten von $\theta^4$ in $E[e^{\theta\xi}] = \sum_k \frac{\theta^k}{k!}E[\xi^k]$ und
+$e^{\theta^2\sigma^2/2} = \sum_k \frac{\theta^{2k}\sigma^{2k}}{2^k k!}$: $\frac{E[\xi^4]}{24} = \frac{\sigma^4}{8}$.
+:::
+
+::: {#thm-martingale}
+## Drei Martingale
+Sei $B$ eine Brownsche Bewegung und $\theta \in \mathbb R$. Dann sind
+
+a. $(B_t)_{t \ge 0}$,
+b. $(B_t^2 - t)_{t \ge 0}$,
+c. $\bigl(\exp(\theta B_t - \tfrac12 \theta^2 t)\bigr)_{t \ge 0}$
+
+Martingale bezüglich $(\mathcal F_t)$.
+:::
+
+::: {.proof}
+Messbarkeit ist klar, Integrierbarkeit folgt aus $B_t \sim N(0,t)$ und @lem-mgf. Sei $s \le t$ und
+$\Delta := B_t - B_s$. $\Delta$ ist unabhängig von $\mathcal F_s$, $B_s$ ist $\mathcal F_s$-messbar. Mit den
+Rechenregeln (Unabhängigkeit, Herausziehen was bekannt ist) gilt $P$-f.s.:
+
+(a) $E[B_t \mid \mathcal F_s] = B_s + E[\Delta \mid \mathcal F_s] = B_s + E[\Delta] = B_s$.
+
+(b) $E[B_t^2 \mid \mathcal F_s] = E[B_s^2 + 2B_s\Delta + \Delta^2 \mid \mathcal F_s] = B_s^2 + 2B_s E[\Delta] + E[\Delta^2] = B_s^2 + (t - s)$.
+Abziehen von $t$ ergibt $E[B_t^2 - t \mid \mathcal F_s] = B_s^2 - s$.
+
+(c) $E[e^{\theta B_t} \mid \mathcal F_s] = e^{\theta B_s} E[e^{\theta \Delta}] = e^{\theta B_s} e^{\theta^2 (t-s)/2}$ nach @lem-mgf.
+Multiplikation mit $e^{-\theta^2 t/2}$ ergibt die Behauptung.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Das sind genau die drei Martingale der Irrfahrt aus dem W-Theorie-Skript; der Beweis von (b) ist
+sogar Zeile für Zeile derselbe, mit $\Delta$ statt $Z_{n+1}$ und $E[\Delta^2] = t - s$ statt $E[Z_{n+1}^2] = 1$.
+Auch (c) passt: Für die reskalierte Irrfahrt mit Schritten $\pm 1/\sqrt n$ ist
+$E[e^{\theta Z_1/\sqrt n}] = \cosh(\theta/\sqrt n)$, und nach $nt$ Schritten
+$$
+\cosh\bigl(\tfrac{\theta}{\sqrt n}\bigr)^{nt} = \Bigl(1 + \frac{\theta^2}{2n} + O(n^{-2})\Bigr)^{nt} \xrightarrow{n \to \infty} e^{\theta^2 t/2} .
+$$
+Die Bedingung $\cosh\theta = e^{-\lambda}$ aus dem Skript wird im Grenzwert zu $\lambda = -\theta^2/2$.
+:::
+
+::: {#exm-drittes-moment}
+## Rechnen mit bedingten Erwartungen
+Wie gut kann man $B_t^3$ aus der Information bis zur Zeit $s \le t$ vorhersagen? Mit $\Delta = B_t - B_s$
+ist $B_t^3 = B_s^3 + 3B_s^2\Delta + 3B_s\Delta^2 + \Delta^3$. Bekanntes herausziehen und Unabhängigkeit
+von $\Delta$ und $\mathcal F_s$ geben mit $E[\Delta] = E[\Delta^3] = 0$ (Symmetrie) und $E[\Delta^2] = t - s$
+$$
+E[B_t^3 \mid \mathcal F_s] = B_s^3 + 3(t - s)B_s \quad P\text{-f.s.}
+$$
+$B_t^3$ selbst ist also *kein* Martingal, aber die Korrektur liegt auf der Hand: Zieht man $3tB_t$ ab, so
+ist $E[B_t^3 - 3tB_t \mid \mathcal F_s] = B_s^3 + 3(t-s)B_s - 3tB_s = B_s^3 - 3sB_s$. Also ist auch
+$(B_t^3 - 3tB_t)_{t \ge 0}$ ein Martingal. Dasselbe Rezept liefert für jede Potenz $B_t^k$ ein Martingal
+„$B_t^k$ minus Korrekturterme“, genau wie $B_t^2 - t$.
+:::
+
+### Maximum und Optional Stopping
+
+Um Optional Stopping in stetiger Zeit zu benutzen, müssen wir das Supremum über überabzählbar viele
+Zeitpunkte kontrollieren. Hier helfen die Stetigkeit der Pfade und Doobs Ungleichung.
+
+::: {#lem-maximum}
+## Doob-Ungleichung für $B$
+Für $s > 0$ ist $\sup_{r \le s}|B_r|$ eine Zufallsvariable, und $E\bigl[\sup_{r \le s} B_r^2\bigr] \le 4s$.
+:::
+
+::: {.proof}
+Wegen der Stetigkeit ist $\sup_{r \le s}|B_r| = \sup_{r \in [0,s] \cap \mathbb Q}|B_r|$ messbar, und
+sogar $= \lim_m \max_{k \le 2^m}|B_{k s 2^{-m}}|$ (monoton wachsend in $m$). Für festes $m$ ist
+$(B_{ks2^{-m}})_{k}$ ein Martingal, $(|B_{ks2^{-m}}|)_k$ also ein nichtnegatives Submartingal. Doobs
+$L^2$-Ungleichung (W-Theorie-Skript, $p = 2$) gibt
+$E[\max_{k \le 2^m} B_{ks2^{-m}}^2] \le 4 E[B_s^2] = 4s$. Monotone Konvergenz für $m \to \infty$.
+:::
+
+::: {#lem-optional}
+## Optional Stopping für $B$
+Sei $(M_t)$ eines der Martingale $B_t$ oder $B_t^2 - t$ und $T$ eine Zufallsvariable mit Werten in
+$[0, \infty]$, sodass $\{T \le t\} \in \mathcal F_t$ für alle $t \ge 0$ (eine **Stoppzeit** in stetiger Zeit,
+wörtlich wie im W-Theorie-Skript). Dann gilt für
+jedes $n \in \mathbb N$: $E[M_{T \wedge n}] = E[M_0] = 0$.
+:::
+
+::: {.proof}
+*Beweisskizze.* Sei $T_m := 2^{-m}\lceil 2^m T \rceil$ die nächste Gitterzeit rechts von $T$. Wegen
+$\{T_m \le k2^{-m}\} = \{T \le k 2^{-m}\} \in \mathcal F_{k2^{-m}}$ ist $T_m \wedge n$ eine beschränkte Stoppzeit für das Martingal $(M_{k2^{-m}})_k$ in diskreter Zeit,
+und Optional Stopping aus dem W-Theorie-Skript gibt $E[M_{T_m \wedge n}] = 0$. Für $m \to \infty$ gilt
+$T_m \downarrow T$, also $M_{T_m \wedge n} \to M_{T \wedge n}$ wegen der Stetigkeit der Pfade. Außerdem
+ist $|M_{T_m \wedge n}| \le \sup_{r \le n} B_r^2 + \sup_{r \le n}|B_r| + n$, und das ist nach
+@lem-maximum integrierbar. Dominierte Konvergenz gibt $E[M_{T \wedge n}] = 0$.
+:::
+
+### Das Ruinproblem
+
+::: {#thm-ruin}
+## Ruinproblem für die Brownsche Bewegung
+Seien $a, b > 0$ und $T := \inf\{t \ge 0 : B_t \notin (-a, b)\}$. Dann gilt
+$$
+T < \infty \ P\text{-f.s.}, \qquad P(B_T = -a) = \frac{b}{a+b}, \qquad E[T] = ab .
+$$
+:::
+
+::: {.proof}
+Wegen der Stetigkeit der Pfade ist
+$\{T \le t\} = \bigl\{\sup_{r \in ([0,t] \cap \mathbb Q) \cup \{t\}} \max(-a - B_r,\ B_r - b) \ge 0\bigr\} \in \mathcal F_t$
+(hat $B$ das Intervall bis $t$ nicht verlassen, so hat die stetige Funktion $\max(-a-B_r, B_r-b)$ auf dem Kompaktum
+$[0,t]$ ein negatives Maximum), also ist $T$ eine Stoppzeit. Ebenfalls wegen der Stetigkeit gilt
+$B_T \in \{-a, b\}$ auf $\{T < \infty\}$ und $|B_{T \wedge n}| \le \max(a,b)$ für alle $n$.
+
+*Endlichkeit und $E[T]$.* @lem-optional für $B_t^2 - t$ gibt $E[T \wedge n] = E[B_{T \wedge n}^2] \le \max(a,b)^2$.
+Mit monotoner Konvergenz folgt $E[T] \le \max(a,b)^2 < \infty$, insbesondere $T < \infty$ $P$-f.s.
+
+*Ruinwahrscheinlichkeit.* @lem-optional für $B_t$ gibt $E[B_{T \wedge n}] = 0$. Für $n \to \infty$ geht
+$B_{T \wedge n} \to B_T$, beschränkt durch $\max(a,b)$; dominierte Konvergenz gibt $E[B_T] = 0$. Mit
+$p := P(B_T = -a)$ ist $0 = -ap + b(1-p)$, also $p = \frac{b}{a+b}$.
+
+*Erwartete Dauer.* In $E[T \wedge n] = E[B_{T \wedge n}^2]$ links monotone, rechts dominierte
+Konvergenz: $E[T] = E[B_T^2] = a^2 \frac{b}{a+b} + b^2 \frac{a}{a+b} = ab$.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Das sind exakt die Formeln der Irrfahrt aus dem W-Theorie-Skript: gleiche Ruinwahrscheinlichkeit
+$\frac{b}{a+b}$, und für $a = b$ dieselbe erwartete Dauer $a^2$. Kein Zufall: Optional Stopping sieht nur
+die Martingaleigenschaft, nicht die Schrittweite. In Finanzsprache: Ein Händler mit einem fairen Spiel
+(Martingal), der bei $-a$ aufhört (Stop-Loss) oder bei $+b$ (Gewinnmitnahme), erreicht das Gewinnziel
+mit Wahrscheinlichkeit $\frac{a}{a+b}$. Durch geschicktes Aussteigen allein lässt sich kein Vorteil
+erzeugen: $E[B_T] = 0$.
+:::
+
+::: {#cor-treffzeit}
+## Jedes Niveau wird erreicht, aber nicht im Mittel endlich schnell
+Für $b > 0$ sei $T_b := \inf\{t \ge 0 : B_t = b\}$. Dann ist $T_b < \infty$ $P$-f.s., aber $E[T_b] = \infty$.
+:::
+
+::: {.proof}
+Für jedes $a > 0$ ist $T_b \ge T$ mit $T$ aus @thm-ruin, und auf $\{B_T = b\}$ ist $T_b = T < \infty$. Also
+$$
+P(T_b < \infty) \ge P(B_T = b) = \frac{a}{a+b} \xrightarrow{a \to \infty} 1, \qquad
+E[T_b] \ge E[T] = ab \xrightarrow{a \to \infty} \infty .
+$$
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Auch das ist wie bei der Irrfahrt im W-Theorie-Skript (Rekurrenz, und $E[T] = \infty$ für die Trefferzeit):
+Ein faires Spiel erreicht jedes Gewinnziel irgendwann sicher. Man muss aber im Mittel unendlich lange
+warten, und zwischendurch kann der Verlust beliebig groß werden. Wer nur „spielt, bis er vorne liegt“,
+braucht also unbegrenzt Kapital und unbegrenzt Zeit. Das ist dieselbe Lektion wie bei der
+Verdopplungsstrategie aus dem Skript.
+:::
+
+```{r}
+#| label: ruin
+ruin <- function(a, b, m = 4000, h = 1e-3) {
+  B <- numeric(m); Tex <- rep(NA_real_, m); unten <- logical(m)
+  aktiv <- rep(TRUE, m); k <- 0
+  while (any(aktiv)) {
+    k <- k + 1
+    B[aktiv] <- B[aktiv] + sqrt(h) * rnorm(sum(aktiv))
+    raus <- aktiv & (B <= -a | B >= b)
+    Tex[raus] <- k * h
+    unten[raus] <- B[raus] <= -a
+    aktiv <- aktiv & !raus
+  }
+  c(p = mean(unten), ET = mean(Tex))
+}
+faelle <- data.frame(a = c(1, 1, 2, 1), b = c(1, 2, 1, 3))
+sim <- t(mapply(ruin, faelle$a, faelle$b))
+tab <- data.frame(
+  `a` = de(faelle$a, 0), `b` = de(faelle$b, 0),
+  `P(B_T = -a) simuliert` = de(sim[, "p"], 3),
+  `b/(a+b)` = de(faelle$b / (faelle$a + faelle$b), 3),
+  `E[T] simuliert` = de(sim[, "ET"], 2),
+  `ab` = de(faelle$a * faelle$b, 2),
+  check.names = FALSE)
+```
+
+::: {#exm-ruin}
+## Simulation des Ruinproblems
+Wir simulieren je 4000 Pfade auf dem Gitter mit $h = 10^{-3}$, bis sie $(-a, b)$ verlassen.
+Weil das Verlassen nur an Gitterpunkten bemerkt wird, ist die simulierte Dauer minimal zu lang.
+
+```{r}
+#| label: tbl-ruin
+#| echo: false
+knitr::kable(tab, align = "rrrrrr")
+```
+:::
+
+### Verbindung zur Wärmeleitungsgleichung
+
+Im W-Theorie-Skript ist $f(n, X_n)$ ein Martingal, wenn
+$f(n,x) = \frac12\bigl(f(n+1, x+1) + f(n+1, x-1)\bigr)$, eine diskrete Version der Wärmeleitungsgleichung.
+Für die Brownsche Bewegung wird daraus die echte.
+
+::: {#thm-waerme}
+## Wärmeleitungsgleichung
+Sei $p(t, x) := \frac{1}{\sqrt{2\pi t}} e^{-x^2/(2t)}$ die Dichte von $B_t$ und $g : \mathbb R \to \mathbb R$
+beschränkt und stetig. Dann gilt für $t > 0$
+$$
+\partial_t\, p = \tfrac12\, \partial_x^2\, p, \qquad\text{und}\qquad u(t, x) := E[g(x + B_t)] \ \text{ erfüllt } \ \partial_t u = \tfrac12\, \partial_x^2 u .
+$$
+:::
+
+::: {.proof}
+Direktes Ableiten: $\partial_x p = -\frac{x}{t}p$, $\partial_x^2 p = \bigl(\frac{x^2}{t^2} - \frac1t\bigr)p$ und
+$\partial_t p = \bigl(\frac{x^2}{2t^2} - \frac{1}{2t}\bigr)p$. Für $u$ ist $u(t,x) = \int g(y)\,p(t, y - x)\,dy$;
+Differenzieren unter dem Integral (dominierte Konvergenz, $g$ beschränkt) überträgt die Gleichung.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+$u(t, x)$ ist die erwartete Auszahlung $g$ zur Zeit $t$, wenn man in $x$ startet. Für die Irrfahrt gilt
+$u(n+1, x) = \frac12\bigl(u(n, x+1) + u(n, x-1)\bigr)$: Nach dem ersten Schritt ist man mit
+Wahrscheinlichkeit $\frac12$ in $x \pm 1$ und hat noch $n$ Schritte vor sich. Umgestellt ist das
+$u(n+1,x) - u(n,x) = \frac12\bigl(u(n,x+1) - 2u(n,x) + u(n,x-1)\bigr)$: Zeitableitung gleich halbe zweite
+Ableitung, diskret. Genau dieses Prinzip steckt später hinter der Black-Scholes-Gleichung.
+:::
+
+## Eigenschaften der Pfade {#sec-pfade}
+
+### Wie weit kommt die Brownsche Bewegung?
+
+Wegen $B_t \sim N(0,t)$ ist $P(|B_t| \le 2\sqrt t) = P(|\xi| \le 2) \approx 0{,}954$ für jedes feste $t$. Die
+Brownsche Bewegung entfernt sich also typischerweise wie $\sqrt t$ vom Ursprung, insbesondere viel
+langsamer als linear.
+
+::: {#thm-ggz}
+## Gesetz der großen Zahlen für $B$
+$\displaystyle \lim_{t \to \infty} \frac{B_t}{t} = 0$ $P$-f.s.
+:::
+
+::: {.proof}
+*Ganze Zeiten.* $B_n = \sum_{k=1}^n (B_k - B_{k-1})$ ist eine Summe von u.i.v. $N(0,1)$-Variablen. Nach dem
+starken Gesetz der großen Zahlen (Stochastik-Skript, Satz 6.7) gilt $B_n / n \to 0$ $P$-f.s.
+
+*Dazwischen.* Sei $M_n := \sup_{t \in [n, n+1]} |B_t - B_n|$. Nach @thm-invarianz (c) hat $M_n$ dieselbe
+Verteilung wie $\sup_{t \le 1}|B_t|$ (beide Suprema sind Grenzwerte von Maxima über endlich viele dyadische
+Zeiten, deren Verteilung übereinstimmt), nach @lem-maximum ist also $E[M_n^2] \le 4$. Für $\varepsilon > 0$ gilt mit
+der Markov-Ungleichung (Stochastik-Skript, Bemerkung nach Lemma 6.3, mit $\varphi(x) = x^2$)
+$$
+P(M_n \ge \varepsilon n) \le \frac{E[M_n^2]}{\varepsilon^2 n^2} \le \frac{4}{\varepsilon^2 n^2}, \qquad \sum_n \frac{4}{\varepsilon^2 n^2} < \infty .
+$$
+Nach Borel-Cantelli ist $P$-f.s. $M_n < \varepsilon n$ für alle großen $n$. Mit $\varepsilon = 1/j$, $j \in \mathbb N$
+(abzählbar viele Nullmengen) folgt $M_n / n \to 0$ $P$-f.s. Für $t \in [n, n+1]$ ist
+$\frac{|B_t|}{t} \le \frac{|B_n| + M_n}{n} \to 0$.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Der Beweis zerlegt die Aufgabe in zwei Teile, die wir schon können: An ganzen Zeiten ist $B_n$ eine
+Summe von u.i.v. Zufallsvariablen (starkes GGZ), und dazwischen kann der Pfad dank Doob nicht zu weit
+ausreißen. Genau diese Aussage benutzt die [Kelly-Seite](kelly.qmd#sec-stetig) in stetiger Zeit: Sie sorgt dafür,
+dass der Zufallsterm $\sigma B_t$ in $\frac1t \log V_t$ verschwindet und nur die deterministische
+Wachstumsrate übrig bleibt.
+:::
+
+```{r}
+#| label: fig-huelle
+#| fig-cap: "120 Pfade auf $[0, 10]$ mit den Kurven $\\pm\\sqrt t$ (durchgezogen) und $\\pm 2\\sqrt t$ (gestrichelt). Zu jedem festen Zeitpunkt liegen etwa 68 % der Pfade innerhalb von $\\pm\\sqrt t$ und etwa 95 % innerhalb von $\\pm 2\\sqrt t$."
+#| fig-width: 7.5
+#| fig-height: 4.2
+h <- 0.02; n <- 500; m <- 120
+t <- (0:n) * h
+pfade <- do.call(rbind, lapply(1:m, function(i) data.frame(t = t, B = bb(n, h), pfad = i)))
+huelle <- data.frame(t = t, s1 = sqrt(t), s2 = 2 * sqrt(t))
+
+ggplot(pfade, aes(t, B, group = pfad)) +
+  geom_line(colour = "#b9d0ee", linewidth = 0.25) +
+  geom_line(data = huelle, aes(t, s1), inherit.aes = FALSE, colour = pal[2], linewidth = 0.9) +
+  geom_line(data = huelle, aes(t, -s1), inherit.aes = FALSE, colour = pal[2], linewidth = 0.9) +
+  geom_line(data = huelle, aes(t, s2), inherit.aes = FALSE, colour = pal[2], linewidth = 0.7, linetype = "dashed") +
+  geom_line(data = huelle, aes(t, -s2), inherit.aes = FALSE, colour = pal[2], linewidth = 0.7, linetype = "dashed") +
+  scale_x_continuous(breaks = seq(0, 10, by = 2), labels = function(v) de(v, 0)) +
+  scale_y_continuous(labels = function(v) de(v, 0)) +
+  labs(x = "Zeit t", y = expression(B[t]))
+```
+
+::: {.callout-note appearance="simple"}
+## Bemerkung (ohne Beweis)
+Genauer gilt das **Gesetz vom iterierten Logarithmus** (Chintschin):
+$\limsup_{t\to\infty} B_t / \sqrt{2t\log\log t} = 1$ $P$-f.s. Die Pfade überschreiten $\pm 2\sqrt t$ also
+immer wieder, aber nur um einen sehr langsam wachsenden Faktor. Der Beweis geht über die Skripte hinaus.
+:::
+
+### Quadratische Variation
+
+Jetzt zur Frage, wie rau die Pfade sind. Wir zerlegen $[0, t]$ in kleine Stücke und summieren die
+Zuwächse, einmal im Betrag und einmal im Quadrat.
+
+::: {#thm-qv}
+## Quadratische Variation
+Sei $t > 0$ und $\Pi = \{0 = s_0 < s_1 < \dots < s_k = t\}$ eine Zerlegung mit Feinheit
+$|\Pi| := \max_j (s_j - s_{j-1})$. Für
+$Q_\Pi := \sum_{j=1}^k (B_{s_j} - B_{s_{j-1}})^2$ gilt
+$$
+E[Q_\Pi] = t, \qquad E\bigl[(Q_\Pi - t)^2\bigr] = 2\sum_{j=1}^k (s_j - s_{j-1})^2 \le 2t\,|\Pi| .
+$$
+Insbesondere $Q_\Pi \to t$ in $\mathcal L^2$ für $|\Pi| \to 0$. Für die dyadischen Zerlegungen
+$\Pi_m := \{k t 2^{-m} : k = 0, \dots, 2^m\}$ gilt sogar $Q_{\Pi_m} \to t$ $P$-f.s.
+:::
+
+::: {.proof}
+Sei $\Delta_j := B_{s_j} - B_{s_{j-1}} \sim N(0, \delta_j)$ mit $\delta_j := s_j - s_{j-1}$. Dann ist
+$E[\Delta_j^2] = \delta_j$, also $E[Q_\Pi] = \sum_j \delta_j = t$. Die $\Delta_j^2$ sind unabhängig, also
+$$
+E[(Q_\Pi - t)^2] = \mathrm{Var}(Q_\Pi) = \sum_j \mathrm{Var}(\Delta_j^2) = \sum_j \bigl(E[\Delta_j^4] - \delta_j^2\bigr) = \sum_j (3\delta_j^2 - \delta_j^2)
+$$
+nach @lem-mgf. Mit $\sum_j \delta_j^2 \le |\Pi| \sum_j \delta_j = |\Pi|\,t$ folgt die Schranke. Für $\Pi_m$ ist
+$E[(Q_{\Pi_m} - t)^2] = 2t^2 2^{-m}$; Chebyshev (Lemma 6.3) gibt
+$P(|Q_{\Pi_m} - t| \ge \varepsilon) \le 2t^2 2^{-m}/\varepsilon^2$, summierbar in $m$, und Borel-Cantelli liefert die
+fast sichere Konvergenz.
+:::
+
+::: {#cor-variation}
+## Unendliche Länge
+$P$-f.s. gilt $V_m := \sum_{j} |B_{s_j} - B_{s_{j-1}}| \to \infty$ entlang $\Pi_m$. Die Pfade haben auf jedem
+Intervall $[0, t]$ unendliche Variation („unendliche Länge“).
+:::
+
+::: {.proof}
+$Q_{\Pi_m} = \sum_j |\Delta_j|\cdot|\Delta_j| \le \max_j |\Delta_j| \cdot V_m$. Da $s \mapsto B_s$ auf $[0,t]$ stetig, also
+gleichmäßig stetig ist, geht $\max_j |\Delta_j| \to 0$. Wäre $V_m$ beschränkt, folgte $Q_{\Pi_m} \to 0$,
+im Widerspruch zu $Q_{\Pi_m} \to t > 0$ (@thm-qv).
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Für eine stetig differenzierbare Funktion $f$ ist $\sum_j |f(s_j) - f(s_{j-1})| \to \int_0^t |f'(s)|\,ds$
+endlich, und $\sum_j (f(s_j) - f(s_{j-1}))^2 \le \max_j|f(s_j) - f(s_{j-1})| \cdot (\text{endlich}) \to 0$.
+Bei der Brownschen Bewegung ist es genau umgekehrt. Der Grund: Ein Zuwachs über ein Intervall der
+Länge $\delta$ hat Größe $\sqrt\delta$, nicht $\delta$. Summiert man $1/\delta$ Stück davon, bekommt man
+$$
+\text{Betrag:}\ \tfrac1\delta \cdot \sqrt\delta \to \infty, \qquad \text{Quadrat:}\ \tfrac1\delta \cdot \delta = 1 .
+$$
+Kurz notiert man das als $(dB_t)^2 = dt$. Diese Regel ist das Herz der Itô-Formel (@sec-gbm), und
+@cor-variation ist der Grund, warum man für $\int f\,dB$ einen neuen Integralbegriff braucht:
+Das Riemann-Stieltjes-Integral setzt endliche Variation voraus.
+:::
+
+```{r}
+#| label: fig-qv
+#| fig-cap: "Ein Pfad auf $[0, 1]$, ausgewertet auf den dyadischen Zerlegungen $\\Pi_m$ mit $2^m$ Teilintervallen. Links: Die Summe der quadrierten Zuwächse geht gegen $t = 1$. Rechts: Die Summe der Beträge wächst wie $\\sqrt{2/\\pi}\\cdot 2^{m/2}$ (gestrichelt) ohne Schranke."
+#| fig-width: 7.5
+#| fig-height: 3.6
+M <- 18
+B <- bb(2^M, 2^-M)
+ms <- 1:M
+werte <- t(sapply(ms, function(m) {
+  d <- diff(B[seq(1, 2^M + 1, by = 2^(M - m))])
+  c(Q = sum(d^2), V = sum(abs(d)))
+}))
+df <- rbind(
+  data.frame(m = ms, wert = werte[, "Q"], ref = 1, panel = "Quadrate: Summe der (ΔB)²"),
+  data.frame(m = ms, wert = werte[, "V"], ref = sqrt(2 / pi) * 2^(ms / 2), panel = "Beträge: Summe der |ΔB|"))
+df$panel <- factor(df$panel, levels = unique(df$panel))
+
+ggplot(df, aes(m, wert)) +
+  geom_line(aes(y = ref), colour = MUTED, linetype = "dashed") +
+  geom_line(colour = pal[1], linewidth = 0.8) +
+  geom_point(colour = pal[1], size = 1.8) +
+  facet_wrap(~ panel, scales = "free_y") +
+  scale_y_continuous(labels = function(v) de(v, 1)) +
+  labs(x = "Stufe m (2^m Teilintervalle)", y = NULL)
+```
+
+::: {.callout-note appearance="simple"}
+## Bemerkung (ohne Beweis)
+Noch stärker gilt der **Satz von Paley, Wiener und Zygmund** (1933): $P$-f.s. ist $t \mapsto B_t$ an
+*keiner* Stelle differenzierbar. Für einen festen Zeitpunkt sieht man den Grund sofort: Der
+Differenzenquotient $\frac{B_{t+h} - B_t}{h}$ ist $N(0, 1/h)$-verteilt, seine Varianz explodiert für
+$h \to 0$. Dass das an allen Stellen *gleichzeitig* passiert, erfordert einen feineren Beweis.
+:::
+
+## Geometrische Brownsche Bewegung {#sec-gbm}
+
+Aktienkurse können nicht negativ werden, und ihre Schwankungen sind eher *prozentual* gleich groß als
+absolut. Deshalb modelliert man nicht den Kurs, sondern seinen Logarithmus mit einer Brownschen
+Bewegung, genau wie beim Vermögen im Kelly-Kriterium, wo $\log V_n$ eine Summe ist.
+
+::: {#def-gbm}
+## Geometrische Brownsche Bewegung
+Seien $S_0 > 0$, $\mu \in \mathbb R$ und $\sigma > 0$. Der Prozess
+$$
+S_t := S_0 \exp\Bigl(\sigma B_t + \bigl(\mu - \tfrac12\sigma^2\bigr) t\Bigr), \qquad t \ge 0,
+$$
+heißt **geometrische Brownsche Bewegung** mit Drift $\mu$ und Volatilität $\sigma$.
+:::
+
+::: {#thm-gbm}
+## Erwartungswert gegen fast sicheres Wachstum
+a. $E[S_t] = S_0\, e^{\mu t}$, und $(e^{-\mu t} S_t)_{t \ge 0}$ ist ein Martingal.
+b. $\displaystyle \lim_{t \to \infty} \frac1t \log \frac{S_t}{S_0} = \mu - \tfrac12\sigma^2$ $P$-f.s.
+c. Insbesondere: Ist $0 < \mu < \frac12\sigma^2$, so gilt $E[S_t] \to \infty$, aber $S_t \to 0$ $P$-f.s.
+:::
+
+::: {.proof}
+(a) $e^{-\mu t}S_t = S_0 \exp(\sigma B_t - \tfrac12 \sigma^2 t)$ ist bis auf den Faktor $S_0$ das Martingal aus
+@thm-martingale (c) mit $\theta = \sigma$. Martingale haben konstanten Erwartungswert, also
+$E[e^{-\mu t}S_t] = S_0$. (b) $\frac1t \log\frac{S_t}{S_0} = \sigma\frac{B_t}{t} + \mu - \frac12\sigma^2$, und
+$B_t / t \to 0$ nach @thm-ggz. (c) folgt aus (a) und (b): Ist der Limes in (b) negativ, so geht
+$\log S_t \to -\infty$.
+:::
+
+::: {.callout-tip appearance="simple"}
+## Erklärung
+Das ist die Lektion der [Kelly-Seite](kelly.qmd) in stetiger Zeit. Der Erwartungswert wächst mit Rate
+$\mu$, der *typische* Pfad aber nur mit Rate $\mu - \frac12\sigma^2$. Die Lücke $\frac12\sigma^2$ ist eine
+Jensen-Lücke: $E[\log S_t] = \log S_0 + (\mu - \frac12\sigma^2)t < \log E[S_t]$. Der Median von $S_t$ ist
+$S_0 e^{(\mu - \sigma^2/2)t}$, weil $B_t$ symmetrisch ist. Der Erwartungswert wird von wenigen extrem guten
+Pfaden getragen, die man fast nie erlebt. Das ist der **Volatility Drag**, der auf der Kelly-Seite die
+Wachstumsrate $r + f(\mu - r) - \frac12 f^2\sigma^2$ bestimmt.
+:::
+
+```{r}
+#| label: fig-gbm
+#| fig-cap: "Geometrische Brownsche Bewegung mit $\\mu = 5\\,\\%$, $\\sigma = 40\\,\\%$, $S_0 = 1$ über 40 Jahre (logarithmische Achse). Grau: 40 simulierte Pfade. Orange: $E[S_t] = e^{\\mu t}$ wächst. Blau: Der Median $e^{(\\mu - \\sigma^2/2)t}$ fällt, weil $\\mu < \\sigma^2/2$."
+#| fig-width: 7.5
+#| fig-height: 4.2
+mu <- 0.05; sigma <- 0.40; h <- 1 / 12; n <- 40 * 12
+t <- (0:n) * h
+pfade <- do.call(rbind, lapply(1:40, function(i)
+  data.frame(t = t, S = exp(sigma * bb(n, h) + (mu - sigma^2 / 2) * t), pfad = i)))
+kurven <- rbind(
+  data.frame(t = t, S = exp(mu * t), was = "Erwartungswert"),
+  data.frame(t = t, S = exp((mu - sigma^2 / 2) * t), was = "Median"))
+
+ggplot(pfade, aes(t, S)) +
+  geom_line(aes(group = pfad), colour = "grey75", linewidth = 0.3) +
+  geom_line(data = kurven, aes(colour = was), linewidth = 1.1) +
+  scale_colour_manual(values = c(Erwartungswert = pal[2], Median = pal[1])) +
+  scale_y_log10(labels = function(v) formatC(v, format = "g", decimal.mark = ",")) +
+  labs(x = "Zeit t in Jahren", y = expression(S[t]))
+```
+
+```{r}
+#| label: gbm-anteil
+S40 <- exp(sigma * sqrt(40) * rnorm(1e5) + (mu - sigma^2 / 2) * 40)
+anteil <- mean(S40 < 1)
+```
+
+Nach 40 Jahren liegen in diesem Beispiel rund $`r de(100 * anteil, 0)`\,\%$ der Pfade unter dem
+Startwert (exakt $\Phi\bigl(\frac{\sigma^2/2 - \mu}{\sigma}\sqrt{40}\bigr) \approx `r de(100 * pnorm((sigma^2/2 - mu) / sigma * sqrt(40)), 0)`\,\%$),
+obwohl der Erwartungswert auf das $e^{2} \approx 7{,}4$-fache gestiegen ist.
+
+::: {.callout-warning appearance="simple"}
+## Ausblick: Itô-Formel (neu, nicht in den Skripten)
+In der Literatur schreibt man die geometrische Brownsche Bewegung meist als **stochastische
+Differentialgleichung** $dS_t = \mu S_t\,dt + \sigma S_t\,dB_t$, so auch auf der Kelly-Seite. Der
+Zusammenhang mit @def-gbm ist die Itô-Formel: Für glattes $f$ ist
+$df(B_t) = f'(B_t)\,dB_t + \frac12 f''(B_t)\,dt$. Der Zusatzterm $\frac12 f''\,dt$ ist genau die Regel
+$(dB_t)^2 = dt$ aus @thm-qv, eingesetzt in die Taylor-Entwicklung bis zur zweiten Ordnung. Wendet man
+das auf $\log S_t$ an, erscheint das $-\frac12\sigma^2$. Stochastische Integrale und die Itô-Formel sind ein
+eigenes Thema für eine spätere Seite.
+:::
+
+## Zusammenfassung {.unnumbered}
+
+| | Einfache Irrfahrt (W-Theorie-Skript) | Brownsche Bewegung |
+|---|---|---|
+| Zeit | $n \in \mathbb N_0$ | $t \in [0, \infty)$ |
+| Zuwachs | $Z_{n+1} = \pm 1$, unabhängig von $\mathcal F_n$ | $B_t - B_s \sim N(0, t-s)$, unabhängig von $\mathcal F_s$ |
+| Varianz | $\mathrm{Var}(X_n) = n$ | $\mathrm{Var}(B_t) = t$ |
+| Martingale | $X_n$, $X_n^2 - n$, $e^{\lambda n + \theta X_n}$ mit $\cosh\theta = e^{-\lambda}$ | $B_t$, $B_t^2 - t$, $e^{\theta B_t - \theta^2 t/2}$ |
+| Ruin in $-a$ vor $b$ | $\frac{b}{a+b}$ | $\frac{b}{a+b}$ |
+| erwartete Austrittszeit aus $(-a, a)$ | $a^2$ | $a^2$ |
+| Wärmeleitung | $u(n+1,x) - u(n,x) = \frac12(u(n,x+1) - 2u(n,x) + u(n,x-1))$ | $\partial_t u = \frac12 \partial_x^2 u$ |
+| Gesetz der großen Zahlen | $X_n / n \to 0$ | $B_t / t \to 0$ |
+| Pfade | Sprünge der Größe 1 | stetig, unendliche Variation, quadratische Variation $t$ |
+
+::: {.callout-note appearance="simple"}
+## Das Wichtigste in fünf Sätzen
+1. Die Brownsche Bewegung ist der Grenzwert der reskalierten Irrfahrt $X_{\lfloor nt\rfloor}/\sqrt n$; der ZGS
+   bestimmt ihre Zuwächse (@thm-grenzwert), und die Definition fasst genau diese Eigenschaften zusammen (@def-bb).
+2. Sie existiert: Lévys Konstruktion fügt immer neue Mittelpunkte mit kleiner werdenden Gauß-Knicken ein,
+   und Borel-Cantelli sichert gleichmäßige Konvergenz (@thm-existenz).
+3. Sie ist selbstähnlich und vergisst ihre Vergangenheit (@thm-invarianz).
+4. Die Martingale und das Ruinproblem der Irrfahrt übertragen sich wörtlich (@thm-martingale, @thm-ruin).
+5. Ihre Pfade haben unendliche Länge, aber quadratische Variation $t$, kurz $(dB)^2 = dt$ (@thm-qv);
+   daraus entsteht der Term $-\frac12\sigma^2$ der geometrischen Brownschen Bewegung, die Brücke zum Kelly-Kriterium (@thm-gbm).
+:::
